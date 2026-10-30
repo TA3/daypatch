@@ -291,7 +291,7 @@ static NSString *likeEscape(NSString *s) {
         [where appendFormat:@" AND (url LIKE ?%lu ESCAPE '\\' OR title LIKE ?%lu ESCAPE '\\')", (unsigned long)args.count, (unsigned long)args.count];
     }
     NSString *sql = [NSString stringWithFormat:@"SELECT url, title, visit_count, typed_count, last_visit_time FROM urls WHERE %@ "
-                     "ORDER BY typed_count DESC, visit_count DESC, last_visit_time DESC LIMIT 60", where];
+                     "ORDER BY typed_count * 2 + visit_count DESC, last_visit_time DESC LIMIT 80", where];
     NSMutableArray *out = [NSMutableArray array];
     // Chromium time: microseconds since 1601-01-01.
     double nowChrome = (NSDate.date.timeIntervalSince1970 + 11644473600.0) * 1e6;
@@ -305,7 +305,9 @@ static NSString *likeEscape(NSString *s) {
         it.symbol = @"globe";
         double visits = sqlite3_column_int(s, 2), typed = sqlite3_column_int(s, 3);
         double ageDays = MAX(0, (nowChrome - sqlite3_column_int64(s, 4)) / 8.64e10);
-        it.frecency = MIN(3.0, log2(visits + 1) * 0.35 + typed * 0.4) + 1.5 / (1 + ageDays / 7.0);
+        // Log-scaled and uncapped, so a site visited thousands of times clearly outranks
+        // one visited dozens of times (typing "g" should give the Google you always use).
+        it.frecency = log2(visits + 1) * 0.6 + log2(typed + 1) * 0.8 + 1.5 / (1 + ageDays / 7.0);
         [out addObject:it];
     }];
     return out;
@@ -334,18 +336,26 @@ static NSString *likeEscape(NSString *s) {
             for (ADItem *it in list) {
                 double m = matchScore(words, it.title, it.kind == ADItemCommand ? nil : it.url);
                 if (m < minMatch) continue;
-                // The bonus grows with how much of the title was typed: "setti" for Settings
-                // earns it, "go" for "Go Back" mostly doesn't.
+                // Commands and pages win when you've clearly started typing their name
+                // (3+ letters, "set" -> Settings); for "g" or "go" your most visited sites lead.
                 double coverage = MIN(1.0, 2.0 * q.length / MAX((NSUInteger)1, it.title.length));
-                it.score = m * weight + it.frecency + (m >= 4 * words.count ? prefixBonus * coverage : 0);
+                BOOL named = m >= 4 * words.count && (it.kind == ADItemTab || q.length >= 3);
+                it.score = m * weight + it.frecency + (named ? prefixBonus * coverage : 0);
                 [all addObject:it];
             }
         };
-        add(commands, 2.5, 1.2, 4.5);
-        add(pages, 2.5, 1.2, 3.0);
+        add(commands, 2.5, 1.2, 15.0);
+        add(pages, 2.5, 1.2, 14.0);
         add(tabs, 0.8, 1.25, 2.5);
         add(bookmarks, 1.0, 1.1, 1.0);
-        add([self historyFor:words], 0.8, 1.0, 0);
+        NSArray<ADItem *> *history = [self historyFor:words];
+        add(history, 0.8, 1.0, 0);
+
+        // A site that's open in a tab is offered as "Switch to Tab", with its history weight.
+        NSMutableDictionary<NSString *, ADItem *> *historyByURL = [NSMutableDictionary dictionary];
+        for (ADItem *h in history) if (h.url) historyByURL[h.url] = h;
+        for (ADItem *t in all)
+            if (t.kind == ADItemTab && historyByURL[t.url]) t.score = MAX(t.score, historyByURL[t.url].score + 0.5);
 
         // De-duplicate URLs: an open tab beats a bookmark beats history.
         [all sortUsingComparator:^NSComparisonResult(ADItem *a, ADItem *b) { return a.score > b.score ? NSOrderedAscending : a.score < b.score ? NSOrderedDescending : NSOrderedSame; }];

@@ -49,6 +49,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 @property (nonatomic, strong) NSTextField *blockedLabel;
 @property (nonatomic, strong) NSPopUpButton *rendererPopup;
 @property (nonatomic, strong) NSPopUpButton *commandBarPopup;
+@property (nonatomic, weak) NSScrollView *scroll;
 @property (nonatomic, strong) NSTimer *timer;
 @property (nonatomic, strong) NSMutableDictionary<NSString *, NSSwitch *> *switches;
 @property (nonatomic, strong) NSMutableDictionary<NSString *, NSArray<NSView *> *> *rowsByKey;
@@ -211,14 +212,14 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     stack.translatesAutoresizingMaskIntoConstraints = NO;
 
     NSScrollView *scroll = [[NSScrollView alloc] initWithFrame:self.bounds];
-    scroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     scroll.drawsBackground = NO;
     scroll.hasVerticalScroller = YES;
-    scroll.automaticallyAdjustsContentInsets = YES;  // clears the transparent titlebar
+    scroll.automaticallyAdjustsContentInsets = NO;   // positioned below the title bar in -layout
     ADFlippedView *doc = [[ADFlippedView alloc] initWithFrame:NSZeroRect];
     doc.translatesAutoresizingMaskIntoConstraints = NO;
     scroll.documentView = doc;
     [self addSubview:scroll];
+    _scroll = scroll;
     [doc addSubview:stack];
     [NSLayoutConstraint activateConstraints:@[
         [doc.widthAnchor constraintEqualToAnchor:scroll.contentView.widthAnchor],
@@ -242,6 +243,18 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 }
 
 - (void)dealloc { [_timer invalidate]; [NSNotificationCenter.defaultCenter removeObserver:self]; }
+
+/// Like Dia's own panes, the scroll area ends at the title bar, so content never
+/// scrolls underneath it.
+- (void)layout {
+    [super layout];
+    NSWindow *w = self.window;
+    CGFloat titlebar = w ? MAX(0, NSHeight(w.frame) - NSMaxY(w.contentLayoutRect)) : 0;
+    NSRect f = self.bounds;
+    f.origin.y += titlebar;            // flipped: the top of the pane
+    f.size.height -= titlebar;
+    if (!NSEqualRects(self.scroll.frame, f)) self.scroll.frame = f;
+}
 
 - (void)updateBlocked {
     self.blockedLabel.stringValue = [NSString stringWithFormat:@"%lu requests blocked since launch. Blocking changes fully apply after restarting Patched Dia.",

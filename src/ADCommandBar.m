@@ -20,6 +20,10 @@ static NSColor *dyn(CGFloat dw, CGFloat da, CGFloat lw, CGFloat la) {
     }];
 }
 
+/// Secondary text in the bar (URLs, "— Search Google", shortcuts, inactive "Switch to Tab").
+/// Tuned to ~6.4:1 contrast on the bar in both dark and light mode (macOS's tertiary label was ~2:1).
+static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
+
 #pragma mark - Results list
 
 @class ADResultsView;
@@ -112,19 +116,19 @@ static NSColor *dyn(CGFloat dw, CGFloat da, CGFloat lw, CGFloat la) {
             // "Switch to Tab" + arrow chip; bright when selected.
             BOOL sel = r == self.selected;
             NSRect chip = NSMakeRect(maxX - 28 + 4, NSMidY(row) - 14, 28, 28);
-            [(sel ? NSColor.labelColor : dyn(1, 0.08, 0, 0.06)) setFill];
+            [(sel ? NSColor.labelColor : dyn(1, 0.16, 0, 0.09)) setFill];
             [[NSBezierPath bezierPathWithRoundedRect:chip xRadius:7 yRadius:7] fill];
             NSImage *arrow = [[NSImage imageWithSystemSymbolName:@"arrow.right" accessibilityDescription:@"Switch to Tab"]
                               imageWithSymbolConfiguration:[NSImageSymbolConfiguration configurationWithPointSize:13 weight:NSFontWeightSemibold]];
             [self drawSymbol:arrow in:chip tint:sel ? NSColor.windowBackgroundColor : NSColor.secondaryLabelColor];
             NSDictionary *ra = @{NSFontAttributeName: sel ? titleFont : detailFont,
-                                 NSForegroundColorAttributeName: sel ? NSColor.labelColor : NSColor.tertiaryLabelColor};
+                                 NSForegroundColorAttributeName: sel ? NSColor.labelColor : detailColor()};
             NSSize rs = [it.detail sizeWithAttributes:ra];
             [it.detail drawAtPoint:NSMakePoint(NSMinX(chip) - 12 - rs.width, NSMidY(row) - rs.height / 2) withAttributes:ra];
             maxX = NSMinX(chip) - 12 - rs.width - 16;
         }
         if (right.length) {
-            NSDictionary *ra = @{NSFontAttributeName: detailFont, NSForegroundColorAttributeName: NSColor.tertiaryLabelColor};
+            NSDictionary *ra = @{NSFontAttributeName: detailFont, NSForegroundColorAttributeName: detailColor()};
             NSSize rs = [right sizeWithAttributes:ra];
             [right drawAtPoint:NSMakePoint(maxX - rs.width, NSMidY(row) - rs.height / 2) withAttributes:ra];
             maxX -= rs.width + 16;
@@ -139,7 +143,7 @@ static NSColor *dyn(CGFloat dw, CGFloat da, CGFloat lw, CGFloat la) {
         if (it.kind == ADItemHistory || it.kind == ADItemBookmark || it.kind == ADItemPage) detail = [self prettyURL:it.url];
         else if (it.kind == ADItemSearch || it.kind == ADItemURL) detail = it.detail;
         if (detail.length) {
-            NSDictionary *da = @{NSFontAttributeName: detailFont, NSForegroundColorAttributeName: NSColor.tertiaryLabelColor, NSParagraphStyleAttributeName: trunc};
+            NSDictionary *da = @{NSFontAttributeName: detailFont, NSForegroundColorAttributeName: detailColor(), NSParagraphStyleAttributeName: trunc};
             NSString *d = [@"— " stringByAppendingString:detail];
             NSSize ds = [d sizeWithAttributes:da];
             CGFloat dx = x + titleW + 8;
@@ -265,6 +269,10 @@ static NSColor *dyn(CGFloat dw, CGFloat da, CGFloat lw, CGFloat la) {
     self.host = window;
     self.mode = mode;
     self.panel.appearance = window.effectiveAppearance;
+    // HUD material is always dark; use the light popover material in light mode so text stays readable.
+    BOOL dark = [[window.effectiveAppearance bestMatchFromAppearancesWithNames:@[NSAppearanceNameAqua, NSAppearanceNameDarkAqua]]
+                 isEqualToString:NSAppearanceNameDarkAqua];
+    self.background.material = dark ? NSVisualEffectMaterialHUDWindow : NSVisualEffectMaterialPopover;
     [self.background.effectiveAppearance performAsCurrentDrawingAppearance:^{
         self.background.layer.borderColor = dyn(1, 0.12, 0, 0.10).CGColor;
     }];
