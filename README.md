@@ -16,6 +16,10 @@
   <img src="https://img.shields.io/badge/macOS-14%2B%20·%20Apple%20silicon-lightgrey" alt="macOS 14+, Apple silicon">
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/commandbar.jpg" width="820" alt="The DayPatch command bar: typing 'set' shows Dia's Settings command, a search, an open tab to switch to, history and a chrome:// page">
+</p>
+
 > [!TIP]
 > **TL;DR** — Install DayPatch, click **Open**, and you get **Patched Dia**: your own Dia with Arc-style tweaks.
 > Your normal Dia isn't changed. Nothing of Dia's is shipped here.
@@ -63,7 +67,7 @@ cd daypatch
   - ✍️ completes sites as you type: `git` → `github.com`
   - 🆕 `⌘T` only makes a tab when you open something
 - 🧼 **Clean new tab** — just "Search or enter URL"
-- 🎛️ **Settings pane** — everything lives in Dia → Settings → *daypatch*
+- 🎛️ **Settings pane** — everything lives in Dia → Settings → *DayPatch*
 - ⌨️ **`⌃⌘U`** — flip between Dia's bar and yours
 
 ### 🔒 Privacy
@@ -81,6 +85,11 @@ cd daypatch
 - ✅ **Feature health** — shows what still works after an update
 - 🔐 **Updates itself** — signed releases from this repo
 - 🫥 **Hides when it can** — menu bar *Always*, *When Needed*, or *Never*
+
+<p align="center">
+  <img src="docs/screenshots/apps.jpg" width="820" alt="DayPatch's pane in Dia's Settings, next to the DayPatch app showing status, updates, feature health and settings">
+  <br><sub>DayPatch's pane in Dia → Settings, and the DayPatch app</sub>
+</p>
 
 ---
 
@@ -141,6 +150,7 @@ open -n --env DYLD_INSERT_LIBRARIES=/path/to/daypatch.dylib:/path/to/tool.dylib 
 | `tools/insert-dylib.c` | Adds the weak load command to Dia's executable |
 | `tools/update-key.swift`, `scripts/make-update-key.sh` | Update signing keys; sign and verify releases |
 | `tools/*.m` | Dev probes and self-tests |
+| `tools/screenshots/` | Renders the README screenshots from the real UI code, with demo content |
 | `tests/run.sh` | Tests that need no Dia |
 | `.github/workflows/` | CI and release automation |
 </details>

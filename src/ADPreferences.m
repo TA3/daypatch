@@ -4,7 +4,7 @@
 #import <objc/runtime.h>
 
 static NSString *const kListClass = @"Preferences.SidebarListView";
-static NSString *const kPaneTitle = @"daypatch";
+static NSString *const kPaneTitle = @"DayPatch";
 static const void *kBaseCountKey = &kBaseCountKey;
 static const void *kPaneKey = &kPaneKey;
 static const void *kHiddenKey = &kHiddenKey;
@@ -152,7 +152,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     _modePopup.action = @selector(modeChanged:);
 
     _commandBarPopup = [[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
-    for (NSArray *m in @[@[@"daypatch (Arc-style)", @(ADCommandBarStyleNative)], @[@"Dia's editor", @(ADCommandBarStyleDiaEditor)], @[@"Off (Dia default)", @(ADCommandBarStyleOff)]]) {
+    for (NSArray *m in @[@[@"DayPatch (Arc-style)", @(ADCommandBarStyleNative)], @[@"Dia's editor", @(ADCommandBarStyleDiaEditor)], @[@"Off (Dia default)", @(ADCommandBarStyleOff)]]) {
         [_commandBarPopup addItemWithTitle:m[0]];
         _commandBarPopup.lastItem.tag = [m[1] integerValue];
     }
@@ -161,7 +161,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 
     NSView *urlGroup = [self groupWithRows:@[
         [self rowWithTitle:@"URL bar position" detail:@"Where the address and back, forward and reload controls live." control:_modePopup key:nil],
-        [self rowWithTitle:@"Command bar" detail:@"What ⌘T, ⌘L and the sidebar URL bar open. daypatch's bar finds tabs, history, bookmarks and commands." control:_commandBarPopup key:nil],
+        [self rowWithTitle:@"Command bar" detail:@"What ⌘T, ⌘L and the sidebar URL bar open. DayPatch's bar finds tabs, history, bookmarks and commands." control:_commandBarPopup key:nil],
         [self rowWithTitle:@"Reveal top bar on hover" detail:@"Move the pointer to the top edge of a page to show Dia's bar." control:[self switchForKey:ADKeyRevealOnHover] key:ADKeyRevealOnHover],
     ]];
     NSView *sidebarGroup = [self groupWithRows:@[
@@ -191,7 +191,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     ]];
     NSTextField *perfNote = [self label:@"Performance options apply after restarting Patched Dia." size:11 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor];
 
-    NSTextField *footer = [self label:@"Press ⌃⌘U to switch between Dia's URL bar and the option above.\ndaypatch is an unofficial patch. Rebuild it after each Dia update."
+    NSTextField *footer = [self label:@"Press ⌃⌘U to switch between Dia's URL bar and the option above.\nDayPatch is an unofficial patch. Rebuild it after each Dia update."
                                  size:11 weight:NSFontWeightRegular color:NSColor.tertiaryLabelColor];
 
     NSStackView *stack = [NSStackView stackViewWithViews:@[

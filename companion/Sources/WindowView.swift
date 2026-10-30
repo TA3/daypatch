@@ -51,7 +51,7 @@ struct DayPatchWindowView: View {
         row {
             VStack(alignment: .leading, spacing: 2) {
                 Text(c.statusLine)
-                Text("daypatch \(c.engine.patchVersion)" + (c.status.patchedFrom.map { " · built from Dia \($0)" } ?? ""))
+                Text("Patch \(c.engine.patchVersion)" + (c.status.patchedFrom.map { " · built from Dia \($0)" } ?? ""))
                     .font(.caption).foregroundStyle(.secondary)
             }
         } trailing: {
@@ -155,7 +155,7 @@ struct DayPatchWindowView: View {
 
     private var footer: some View {
         HStack {
-            Text("daypatch \(c.engine.patchVersion)").foregroundStyle(.secondary)
+            Text("DayPatch \(c.engine.patchVersion)").foregroundStyle(.secondary)
             Spacer()
             Button("Quit DayPatch") { NSApp.terminate(nil) }
         }
