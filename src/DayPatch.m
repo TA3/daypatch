@@ -24,6 +24,13 @@ static void installKeyMonitor(void) {
     }];
 }
 
+// The app menu shows "Dia ✦". CFBundleName stays "Dia" (it names the profile folder),
+// so the title is set here instead.
+static void showPatchedName(void) {
+    NSMenu *appMenu = NSApp.mainMenu.itemArray.firstObject.submenu;
+    if (appMenu && ![appMenu.title isEqualToString:@"Dia \u2726"]) appMenu.title = @"Dia \u2726";
+}
+
 __attribute__((constructor)) static void init(void) {
     // Don't leak into Chromium helper processes.
     unsetenv("DYLD_INSERT_LIBRARIES");
@@ -36,6 +43,9 @@ __attribute__((constructor)) static void init(void) {
         TweakPreferencesInstall();
         TweakPaletteInstall();
         installKeyMonitor();
+        showPatchedName();
+        [NSNotificationCenter.defaultCenter addObserverForName:NSApplicationDidBecomeActiveNotification object:nil queue:nil
+                                                    usingBlock:^(NSNotification *n) { showPatchedName(); }];
         NSLog(@"[daypatch] installed");
         TweakHealthWrite();
         TweakKickCompanionOnQuit();

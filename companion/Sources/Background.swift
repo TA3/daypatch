@@ -49,6 +49,7 @@ enum BackgroundAgent {
 /// One background pass. Mirrors the menu bar app's automation.
 func runBackgroundCheck() async {
     Migration.trashOldApps()
+    Migration.mergeSplitProfiles()
     let engine = PatchEngine(resources: Bundle.main.resourceURL!)
     let autoRepatch = Prefs.autoRepatch
 

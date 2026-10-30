@@ -143,6 +143,7 @@ final class PatchEngine {
         let fm = FileManager.default
         guard fm.fileExists(atPath: Self.source.path) else { throw PatchError.diaMissing }
         guard !Self.patchedIsRunning else { throw PatchError.patchedRunning }
+        Migration.mergeSplitProfiles()
         try withLock {
             let inPlace = Self.mode == .inPlace
             let pristine: URL
@@ -188,7 +189,8 @@ final class PatchEngine {
             } else {
                 plist["SUEnableAutomaticChecks"] = false                // the copy follows the regular Dia
             }
-            plist["CFBundleName"] = Self.appName
+            // Only the display name changes: Dia names its profile folder after CFBundleName,
+            // so keeping "Dia" there keeps Dia ✦ on the same profile as the regular Dia.
             plist["CFBundleDisplayName"] = Self.appName
             plist["DayPatchSourceBuild"] = Self.info(pristine)?["CFBundleVersion"]
             plist["DayPatchPatchVersion"] = patchVersion

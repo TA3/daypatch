@@ -40,6 +40,33 @@ enum Migration {
         return hadBackgroundJob
     }
 
+    /// Dia names its profile folder after CFBundleName, which DayPatch used to change
+    /// ("Patched Dia", then "Dia ✦" in 0.11.0), so the patched app got a profile of its
+    /// own. If one of those is newer than Dia's, it becomes Dia's profile again; the
+    /// older one is kept in daypatch/profile-backups. Only runs while no Dia is running.
+    static func mergeSplitProfiles(diaRunning: Bool = NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == "company.thebrowser.dia" }) {
+        let fm = FileManager.default
+        let support = home.appendingPathComponent("Library/Application Support")
+        let main = support.appendingPathComponent("Dia")
+        func lastUsed(_ dir: URL) -> Date? {
+            (try? dir.appendingPathComponent("User Data/Local State").resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        }
+        let split = ["Dia ✦", "Patched Dia"].map { support.appendingPathComponent($0) }
+            .compactMap { dir in lastUsed(dir).map { (dir, $0) } }
+            .max { $0.1 < $1.1 }
+        guard let (newest, date) = split, date > (lastUsed(main) ?? .distantPast) else { return }
+        guard !diaRunning else { return }
+        let backups = PatchEngine.supportDir.appendingPathComponent("profile-backups")
+        let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+        do {
+            try fm.createDirectory(at: backups, withIntermediateDirectories: true)
+            if fm.fileExists(atPath: main.path) { try fm.moveItem(at: main, to: backups.appendingPathComponent("Dia-\(stamp)")) }
+            try fm.moveItem(at: newest, to: main)
+        } catch {
+            NSLog("DayPatch: couldn't merge Dia profiles: \(error)")
+        }
+    }
+
     /// After Dia ✦ exists: move the old apps to the Trash (recoverable).
     static func trashOldApps() {
         let fm = FileManager.default

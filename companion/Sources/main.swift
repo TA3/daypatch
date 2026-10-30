@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     func applicationDidFinishLaunching(_ n: Notification) {
         if Migration.run() { c.applyMode() }   // re-create the old background job under the new name
         Migration.trashOldApps()
+        Migration.mergeSplitProfiles()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         let menu = NSMenu()
         menu.delegate = self

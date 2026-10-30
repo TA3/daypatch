@@ -2,6 +2,11 @@
 
 Each release's notes come from its section here (the release workflow requires one).
 
+## 0.11.1
+
+- 🗂️ **Dia ✦ uses your regular Dia profile again.** Renaming the app had given it a profile of its own, so tabs, history and logins drifted apart from the original Dia (which Restore and Update Dia… open). DayPatch moves the newer profile back into place once, keeping the older one in `~/Library/Application Support/daypatch/profile-backups`.
+- ✦ The star now comes from the display name and the app menu; Dia's internal name stays "Dia".
+
 ## 0.11.0
 
 - 🩹 **Dia is patched in place** by default and becomes **Dia ✦**. The original is kept, so **Restore** puts it back in one click.

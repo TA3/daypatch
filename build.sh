@@ -36,7 +36,9 @@ codesign --remove-signature "$DEST/Contents/MacOS/Dia"
 # Sparkle would replace this copy with a stock build; update the regular Dia instead.
 /usr/libexec/PlistBuddy -c "Set :SUEnableAutomaticChecks false" "$PLIST" 2>/dev/null \
     || /usr/libexec/PlistBuddy -c "Add :SUEnableAutomaticChecks bool false" "$PLIST"
-/usr/libexec/PlistBuddy -c "Set :CFBundleName Dia ✦" "$PLIST" 2>/dev/null || true
+# Display name only: Dia names its profile folder after CFBundleName.
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Dia ✦" "$PLIST" 2>/dev/null \
+    || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Dia ✦" "$PLIST"
 
 # Ad-hoc signature. Restricted entitlements (keychain groups, associated domains,
 # passkeys) can't be kept without Dia's provisioning profile, so they're dropped.
