@@ -50,9 +50,9 @@ __attribute__((constructor)) static void init(void) {
         for (NSWindow *x in NSApp.windows) if ([NSStringFromClass(x.class) isEqualToString:@"Window.PlatformWindow"] && x.isVisible) w = x;
         [NSApp activateIgnoringOtherApps:YES];
         [w makeKeyAndOrderFront:nil];
-        ((void (*)(NSWindow *, NSString *))dlsym(RTLD_DEFAULT, "ADNavigateWindow"))(w, @"https://example.com");
+        ((void (*)(NSWindow *, NSString *))dlsym(RTLD_DEFAULT, "TweakNavigateWindow"))(w, @"https://example.com");
         after(3, ^{
-            ((BOOL (*)(NSWindow *))dlsym(RTLD_DEFAULT, "ADPaletteOpen"))(w);
+            ((BOOL (*)(NSWindow *))dlsym(RTLD_DEFAULT, "TweakPaletteOpen"))(w);
             after(1, ^{
                 [w.firstResponder insertText:@"go"];
                 after(2, ^{
@@ -60,7 +60,7 @@ __attribute__((constructor)) static void init(void) {
                     snapshot(w, @"/tmp/ui-palette.png");
                     key(w, @"\e", 53);
                     after(1.5, ^{
-                        ((BOOL (*)(NSWindow *))dlsym(RTLD_DEFAULT, "ADSidebarFocusURLBar"))(w);
+                        ((BOOL (*)(NSWindow *))dlsym(RTLD_DEFAULT, "TweakSidebarFocusURLBar"))(w);
                         after(1, ^{
                             id fr = w.firstResponder;
                             [fr selectAll:nil];

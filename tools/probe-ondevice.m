@@ -44,11 +44,11 @@ __attribute__((constructor)) static void init(void) {
     after(10, ^{
         NSWindow *w = nil;
         for (NSWindow *x in NSApp.windows) if ([NSStringFromClass(x.class) isEqualToString:@"Window.PlatformWindow"] && x.isVisible) w = x;
-        void (*navigate)(NSWindow *, NSString *) = dlsym(RTLD_DEFAULT, "ADNavigateWindow");
+        void (*navigate)(NSWindow *, NSString *) = dlsym(RTLD_DEFAULT, "TweakNavigateWindow");
         NSArray *pages = @[@"https://en.wikipedia.org/wiki/Web_browser", @"https://news.ycombinator.com", @"https://developer.apple.com/documentation/appkit"];
         for (NSUInteger i = 0; i < pages.count; i++) after(i * 6, ^{ if (navigate) navigate(w, pages[i]); });
         after(pages.count * 6 + 2, ^{
-            BOOL (*openEditor)(NSWindow *) = dlsym(RTLD_DEFAULT, "ADSidebarFocusURLBar");
+            BOOL (*openEditor)(NSWindow *) = dlsym(RTLD_DEFAULT, "TweakSidebarFocusURLBar");
             if (openEditor) openEditor(w);
             after(1, ^{
                 id fr = w.firstResponder;

@@ -7,10 +7,10 @@
 static NSMutableOrderedSet<NSString *> *gSeen;
 static NSLock *gLock;
 
-@interface ADLogProtocol : NSURLProtocol
+@interface TweakLogProtocol : NSURLProtocol
 @end
 
-@implementation ADLogProtocol
+@implementation TweakLogProtocol
 + (BOOL)canInitWithRequest:(NSURLRequest *)r {
     NSURL *u = r.URL;
     NSString *path = u.path.length > 40 ? [u.path substringToIndex:40] : u.path;
@@ -23,7 +23,7 @@ static NSLock *gLock;
 
 static NSURLSession *(*origSession)(id, SEL, NSURLSessionConfiguration *, id, NSOperationQueue *);
 static NSURLSession *hookedSession(id self, SEL _cmd, NSURLSessionConfiguration *c, id d, NSOperationQueue *q) {
-    c.protocolClasses = [@[ADLogProtocol.class] arrayByAddingObjectsFromArray:c.protocolClasses ?: @[]];
+    c.protocolClasses = [@[TweakLogProtocol.class] arrayByAddingObjectsFromArray:c.protocolClasses ?: @[]];
     return origSession(self, _cmd, c, d, q);
 }
 
@@ -37,7 +37,7 @@ static void walk(NSView *v, NSRegularExpression *re, NSMutableString *out, NSStr
 __attribute__((constructor)) static void init(void) {
     gSeen = [NSMutableOrderedSet orderedSet];
     gLock = [NSLock new];
-    [NSURLProtocol registerClass:ADLogProtocol.class];
+    [NSURLProtocol registerClass:TweakLogProtocol.class];
     Method m = class_getClassMethod(NSURLSession.class, @selector(sessionWithConfiguration:delegate:delegateQueue:));
     origSession = (void *)method_setImplementation(m, (IMP)hookedSession);
 

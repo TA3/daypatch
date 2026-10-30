@@ -4,16 +4,16 @@
 //
 // Dia's editor always navigates the current tab, so while the palette is open we
 // intercept that load and open the URL in a new tab instead.
-#import "ADCommon.h"
+#import "Common.h"
 #import <objc/runtime.h>
 
-NSString *const ADKeyNewTabPalette = @"daypatch.newTabPalette";
+NSString *const TweakKeyNewTabPalette = @"daypatch.newTabPalette";
 
 static __weak NSWindow *gPaletteWindow;
 static NSTimeInterval gPaletteOpenedAt;
 static NSString *gActiveURLAtOpen;
 
-static BOOL paletteEnabled(void) { return ADCommandBarCurrentStyle() == ADCommandBarStyleDiaEditor; }
+static BOOL paletteEnabled(void) { return TweakCommandBarCurrentStyle() == TweakCommandBarStyleDiaEditor; }
 
 #pragma mark - Redirecting the commit
 
@@ -23,7 +23,7 @@ static id hookedLoad(id self, SEL _cmd, NSURL *url, id origin, long transition, 
     if (w && fromAddressBar && url.absoluteString.length) {
         gPaletteWindow = nil;
         NSString *target = url.absoluteString;
-        dispatch_async(dispatch_get_main_queue(), ^{ ADOpenInNewTab(w, target); });
+        dispatch_async(dispatch_get_main_queue(), ^{ TweakOpenInNewTab(w, target); });
         return nil;  // the current tab stays where it was
     }
     return origLoad(self, _cmd, url, origin, transition, fromAddressBar, typedHttp);
@@ -31,7 +31,7 @@ static id hookedLoad(id self, SEL _cmd, NSURL *url, id origin, long transition, 
 
 #pragma mark - Opening
 
-BOOL ADPaletteOpen(NSWindow *window) {
+BOOL TweakPaletteOpen(NSWindow *window) {
     if (!paletteEnabled() || !window) return NO;
     NSView *frame = window.contentView.superview ?: window.contentView;
     NSRect b = frame.bounds;
@@ -39,11 +39,11 @@ BOOL ADPaletteOpen(NSWindow *window) {
     CGFloat width = MIN(680, NSWidth(b) - 80);
     CGFloat top = NSHeight(b) * 0.80;
     NSRect anchor = NSMakeRect(NSMidX(b) - width / 2 + 6, top - 30, width - 12, 30);
-    if (!ADNavBarOpenEditor(window, anchor)) return NO;
+    if (!TweakNavBarOpenEditor(window, anchor)) return NO;
 
     gPaletteWindow = window;
     gPaletteOpenedAt = NSDate.timeIntervalSinceReferenceDate;
-    gActiveURLAtOpen = ADURLForWindow(window);
+    gActiveURLAtOpen = TweakURLForWindow(window);
     // Start empty, like a new tab (Dia pre-fills the current URL).
     dispatch_async(dispatch_get_main_queue(), ^{
         id fr = window.firstResponder;
@@ -56,7 +56,7 @@ BOOL ADPaletteOpen(NSWindow *window) {
 }
 
 // Called when the editor closes without committing.
-void ADPaletteEditorClosed(NSWindow *window) {
+void TweakPaletteEditorClosed(NSWindow *window) {
     if (gPaletteWindow == window) gPaletteWindow = nil;
 }
 
@@ -64,18 +64,18 @@ void ADPaletteEditorClosed(NSWindow *window) {
 
 static void (*origNewTabMouseDown)(id, SEL, NSEvent *);
 static void hookedNewTabMouseDown(NSView *self, SEL _cmd, NSEvent *e) {
-    if (ADCommandBarCurrentStyle() == ADCommandBarStyleNative ? ADCommandBarShow(self.window, YES) : ADPaletteOpen(self.window)) return;
+    if (TweakCommandBarCurrentStyle() == TweakCommandBarStyleNative ? TweakCommandBarShow(self.window, YES) : TweakPaletteOpen(self.window)) return;
     origNewTabMouseDown(self, _cmd, e);
 }
 
-void ADPaletteInstall(void) {
+void TweakPaletteInstall(void) {
     Class nav = NSClassFromString(@"ArcWebContentsNavigationController");
     SEL loadSel = @selector(load:initiatorOrigin:transition:fromAddressBar:typedWithHttpScheme:);
-    if (nav && class_getInstanceMethod(nav, loadSel)) origLoad = (void *)ADHook(nav, loadSel, (IMP)hookedLoad);
+    if (nav && class_getInstanceMethod(nav, loadSel)) origLoad = (void *)TweakHook(nav, loadSel, (IMP)hookedLoad);
     else NSLog(@"[daypatch] navigation load not found; new-tab palette inactive");
 
     Class row = NSClassFromString(@"TabList.NewTabCellView");
-    if (row) origNewTabMouseDown = (void *)ADHook(row, @selector(mouseDown:), (IMP)hookedNewTabMouseDown);
+    if (row) origNewTabMouseDown = (void *)TweakHook(row, @selector(mouseDown:), (IMP)hookedNewTabMouseDown);
 }
 
-BOOL ADPaletteAvailable(void) { return origLoad != NULL; }
+BOOL TweakPaletteAvailable(void) { return origLoad != NULL; }

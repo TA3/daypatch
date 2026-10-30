@@ -20,9 +20,9 @@ __attribute__((constructor)) static void init(void) {
         NSWindow *w = nil;
         for (NSWindow *x in NSApp.windows) if ([NSStringFromClass(x.class) isEqualToString:@"Window.PlatformWindow"] && x.isVisible) w = x;
         [NSApp activateIgnoringOtherApps:YES]; [w makeKeyAndOrderFront:nil];
-        ((void (*)(NSWindow *, NSString *))dlsym(RTLD_DEFAULT, "ADNavigateWindow"))(w, @"https://example.com");
+        ((void (*)(NSWindow *, NSString *))dlsym(RTLD_DEFAULT, "TweakNavigateWindow"))(w, @"https://example.com");
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        ((BOOL (*)(NSWindow *))dlsym(RTLD_DEFAULT, "ADPaletteOpen"))(w);
+        ((BOOL (*)(NSWindow *))dlsym(RTLD_DEFAULT, "TweakPaletteOpen"))(w);
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1.5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
             dump(find(w.contentView.superview, @"DynamicPopover"), 0);
             [out writeToFile:@"/tmp/daypatch-editor-tree.txt" atomically:YES encoding:NSUTF8StringEncoding error:nil];

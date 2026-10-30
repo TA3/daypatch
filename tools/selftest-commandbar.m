@@ -6,7 +6,7 @@
 static NSMutableString *out;
 static void after(double s, dispatch_block_t b) { dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(s * NSEC_PER_SEC)), dispatch_get_main_queue(), b); }
 
-static id bar(void) { return [NSClassFromString(@"ADCommandBar") performSelector:@selector(shared)]; }
+static id bar(void) { return [NSClassFromString(@"TweakCommandBar") performSelector:@selector(shared)]; }
 static NSPanel *panel(void) { return [bar() valueForKey:@"panel"]; }
 static NSArray *items(void) { return [[bar() valueForKey:@"results"] valueForKey:@"items"]; }
 static NSTextField *field(void) { return [bar() valueForKey:@"field"]; }
@@ -48,9 +48,9 @@ __attribute__((constructor)) static void init(void) {
         for (NSWindow *x in NSApp.windows) if ([NSStringFromClass(x.class) isEqualToString:@"Window.PlatformWindow"] && x.isVisible) w = x;
         [NSApp activateIgnoringOtherApps:YES];
         [w makeKeyAndOrderFront:nil];
-        BOOL (*show)(NSWindow *, BOOL) = dlsym(RTLD_DEFAULT, "ADCommandBarShow");
-        NSString *(*urlFor)(NSWindow *) = dlsym(RTLD_DEFAULT, "ADURLForWindow");
-        void (*navigate)(NSWindow *, NSString *) = dlsym(RTLD_DEFAULT, "ADNavigateWindow");
+        BOOL (*show)(NSWindow *, BOOL) = dlsym(RTLD_DEFAULT, "TweakCommandBarShow");
+        NSString *(*urlFor)(NSWindow *) = dlsym(RTLD_DEFAULT, "TweakURLForWindow");
+        void (*navigate)(NSWindow *, NSString *) = dlsym(RTLD_DEFAULT, "TweakNavigateWindow");
         navigate(w, @"https://example.com/cb-start");
         NSArray *cmds = [[bar() valueForKey:@"sources"] performSelector:@selector(loadCommands)];
         [out appendFormat:@"commands loaded: %lu %@\n", (unsigned long)cmds.count, [[cmds valueForKey:@"title"] componentsJoinedByString:@" | "]];

@@ -1,6 +1,6 @@
 // Adds an "daypatch" pane to Dia's Settings window by appending a row to its
 // sidebar table and swapping our own form in when that row is selected.
-#import "ADCommon.h"
+#import "Common.h"
 #import <objc/runtime.h>
 
 static NSString *const kListClass = @"Preferences.SidebarListView";
@@ -23,10 +23,10 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 
 #pragma mark - Pane UI
 
-@interface ADGroupView : NSView
+@interface TweakGroupView : NSView
 @end
 
-@implementation ADGroupView
+@implementation TweakGroupView
 - (BOOL)wantsUpdateLayer { return YES; }
 - (void)updateLayer {
     self.layer.cornerRadius = 10;
@@ -37,14 +37,14 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 }
 @end
 
-@interface ADFlippedView : NSView
+@interface TweakFlippedView : NSView
 @end
 
-@implementation ADFlippedView
+@implementation TweakFlippedView
 - (BOOL)isFlipped { return YES; }
 @end
 
-@interface ADPrefsPane : NSView
+@interface TweakPrefsPane : NSView
 @property (nonatomic, strong) NSPopUpButton *modePopup;
 @property (nonatomic, strong) NSTextField *blockedLabel;
 @property (nonatomic, strong) NSPopUpButton *rendererPopup;
@@ -55,7 +55,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 @property (nonatomic, strong) NSMutableDictionary<NSString *, NSArray<NSView *> *> *rowsByKey;
 @end
 
-@implementation ADPrefsPane
+@implementation TweakPrefsPane
 
 - (BOOL)isFlipped { return YES; }
 
@@ -100,7 +100,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 }
 
 - (NSView *)groupWithRows:(NSArray<NSView *> *)rows {
-    ADGroupView *g = [[ADGroupView alloc] initWithFrame:NSZeroRect];
+    TweakGroupView *g = [[TweakGroupView alloc] initWithFrame:NSZeroRect];
     g.wantsLayer = YES;
     NSMutableArray *items = [NSMutableArray array];
     for (NSUInteger i = 0; i < rows.count; i++) {
@@ -145,7 +145,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     _rowsByKey = [NSMutableDictionary dictionary];
 
     _modePopup = [[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
-    for (NSArray *m in @[@[@"Top (Dia default)", @(ADURLBarModeTop)], @[@"Hidden", @(ADURLBarModeHidden)], @[@"In sidebar", @(ADURLBarModeSidebar)]]) {
+    for (NSArray *m in @[@[@"Top (Dia default)", @(TweakURLBarModeTop)], @[@"Hidden", @(TweakURLBarModeHidden)], @[@"In sidebar", @(TweakURLBarModeSidebar)]]) {
         [_modePopup addItemWithTitle:m[0]];
         _modePopup.lastItem.tag = [m[1] integerValue];
     }
@@ -153,7 +153,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     _modePopup.action = @selector(modeChanged:);
 
     _commandBarPopup = [[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
-    for (NSArray *m in @[@[@"DayPatch (Arc-style)", @(ADCommandBarStyleNative)], @[@"Dia's editor", @(ADCommandBarStyleDiaEditor)], @[@"Off (Dia default)", @(ADCommandBarStyleOff)]]) {
+    for (NSArray *m in @[@[@"DayPatch (Arc-style)", @(TweakCommandBarStyleNative)], @[@"Dia's editor", @(TweakCommandBarStyleDiaEditor)], @[@"Off (Dia default)", @(TweakCommandBarStyleOff)]]) {
         [_commandBarPopup addItemWithTitle:m[0]];
         _commandBarPopup.lastItem.tag = [m[1] integerValue];
     }
@@ -163,20 +163,20 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     NSView *urlGroup = [self groupWithRows:@[
         [self rowWithTitle:@"URL bar position" detail:@"Where the address and back, forward and reload controls live." control:_modePopup key:nil],
         [self rowWithTitle:@"Command bar" detail:@"What ⌘T, ⌘L and the sidebar URL bar open. DayPatch's bar finds tabs, history, bookmarks and commands." control:_commandBarPopup key:nil],
-        [self rowWithTitle:@"Reveal top bar on hover" detail:@"Move the pointer to the top edge of a page to show Dia's bar." control:[self switchForKey:ADKeyRevealOnHover] key:ADKeyRevealOnHover],
+        [self rowWithTitle:@"Reveal top bar on hover" detail:@"Move the pointer to the top edge of a page to show Dia's bar." control:[self switchForKey:TweakKeyRevealOnHover] key:TweakKeyRevealOnHover],
     ]];
     NSView *sidebarGroup = [self groupWithRows:@[
-        [self rowWithTitle:@"⌘L opens the sidebar URL bar" detail:@"With Dia's editor as the command bar: open it at the sidebar instead of the top." control:[self switchForKey:ADKeyCmdLFocusesSidebar] key:ADKeyCmdLFocusesSidebar],
-        [self rowWithTitle:@"Show full URL" detail:@"Otherwise only the site's domain is shown." control:[self switchForKey:ADKeySidebarFullURL] key:ADKeySidebarFullURL],
-        [self rowWithTitle:@"Back, forward and reload buttons" detail:@"Shown next to the window controls." control:[self switchForKey:ADKeySidebarNavButtons] key:ADKeySidebarNavButtons],
+        [self rowWithTitle:@"⌘L opens the sidebar URL bar" detail:@"With Dia's editor as the command bar: open it at the sidebar instead of the top." control:[self switchForKey:TweakKeyCmdLFocusesSidebar] key:TweakKeyCmdLFocusesSidebar],
+        [self rowWithTitle:@"Show full URL" detail:@"Otherwise only the site's domain is shown." control:[self switchForKey:TweakKeySidebarFullURL] key:TweakKeySidebarFullURL],
+        [self rowWithTitle:@"Back, forward and reload buttons" detail:@"Shown next to the window controls." control:[self switchForKey:TweakKeySidebarNavButtons] key:TweakKeySidebarNavButtons],
     ]];
     NSView *privacyGroup = [self groupWithRows:@[
-        [self rowWithTitle:@"Hide AI features" detail:@"Chat menus and shortcuts, Chats in the sidebar, the Chat button, \u201cChat with this tab\u201d on tab previews, \u201cAdd tabs or files\u201d, and page content extraction." control:[self switchForKey:ADKeyHideAI] key:ADKeyHideAI],
-        [self rowWithTitle:@"Block AI services" detail:@"Dia's AI endpoints (chat, AI search, artifacts) and Google's Gemini API. Hover for the full list." control:[self switchForKey:ADKeyBlockAI] key:ADKeyBlockAI],
-        [self rowWithTitle:@"Block telemetry" detail:@"Datadog, Sentry, Segment, LaunchDarkly events and Dia's OpenTelemetry gateway." control:[self switchForKey:ADKeyBlockTelemetry] key:ADKeyBlockTelemetry],
+        [self rowWithTitle:@"Hide AI features" detail:@"Chat menus and shortcuts, Chats in the sidebar, the Chat button, \u201cChat with this tab\u201d on tab previews, \u201cAdd tabs or files\u201d, and page content extraction." control:[self switchForKey:TweakKeyHideAI] key:TweakKeyHideAI],
+        [self rowWithTitle:@"Block AI services" detail:@"Dia's AI endpoints (chat, AI search, artifacts) and Google's Gemini API. Hover for the full list." control:[self switchForKey:TweakKeyBlockAI] key:TweakKeyBlockAI],
+        [self rowWithTitle:@"Block telemetry" detail:@"Datadog, Sentry, Segment, LaunchDarkly events and Dia's OpenTelemetry gateway." control:[self switchForKey:TweakKeyBlockTelemetry] key:TweakKeyBlockTelemetry],
     ]];
     _blockedLabel = [self label:@"" size:11 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor];
-    self.rowsByKey[ADKeyBlockAI].firstObject.toolTip = [@"Blocked hosts:\n" stringByAppendingString:[ADAIHosts() componentsJoinedByString:@"\n"]];
+    self.rowsByKey[TweakKeyBlockAI].firstObject.toolTip = [@"Blocked hosts:\n" stringByAppendingString:[TweakAIHosts() componentsJoinedByString:@"\n"]];
 
     _rendererPopup = [[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
     for (NSArray *r in @[@[@"Chromium default", @0], @[@"16", @16], @[@"8", @8], @[@"4", @4]]) {
@@ -186,9 +186,9 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     _rendererPopup.target = self;
     _rendererPopup.action = @selector(rendererChanged:);
     NSView *perfGroup = [self groupWithRows:@[
-        [self rowWithTitle:@"Turn off on-device AI" detail:@"Don't start Dia's local AI service process (about 40 MB), which otherwise classifies everything typed in the URL editor. Requires Hide AI features." control:[self switchForKey:ADKeyDisableOnDeviceAI] key:ADKeyDisableOnDeviceAI],
-        [self rowWithTitle:@"Renderer process limit" detail:@"Tabs share processes above this number: less memory with many tabs, but one crash can take several tabs with it." control:_rendererPopup key:ADKeyRendererLimit],
-        [self rowWithTitle:@"Disable background networking" detail:@"Stops Chromium's background updaters (components, field trials). May delay Safe Browsing list updates." control:[self switchForKey:ADKeyNoBackgroundNetworking] key:ADKeyNoBackgroundNetworking],
+        [self rowWithTitle:@"Turn off on-device AI" detail:@"Don't start Dia's local AI service process (about 40 MB), which otherwise classifies everything typed in the URL editor. Requires Hide AI features." control:[self switchForKey:TweakKeyDisableOnDeviceAI] key:TweakKeyDisableOnDeviceAI],
+        [self rowWithTitle:@"Renderer process limit" detail:@"Tabs share processes above this number: less memory with many tabs, but one crash can take several tabs with it." control:_rendererPopup key:TweakKeyRendererLimit],
+        [self rowWithTitle:@"Disable background networking" detail:@"Stops Chromium's background updaters (components, field trials). May delay Safe Browsing list updates." control:[self switchForKey:TweakKeyNoBackgroundNetworking] key:TweakKeyNoBackgroundNetworking],
     ]];
     NSTextField *perfNote = [self label:@"Performance options apply after restarting Dia." size:11 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor];
 
@@ -215,7 +215,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     scroll.drawsBackground = NO;
     scroll.hasVerticalScroller = YES;
     scroll.automaticallyAdjustsContentInsets = NO;   // positioned below the title bar in -layout
-    ADFlippedView *doc = [[ADFlippedView alloc] initWithFrame:NSZeroRect];
+    TweakFlippedView *doc = [[TweakFlippedView alloc] initWithFrame:NSZeroRect];
     doc.translatesAutoresizingMaskIntoConstraints = NO;
     scroll.documentView = doc;
     [self addSubview:scroll];
@@ -238,7 +238,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     __weak typeof(self) weakSelf = self;
     _timer = [NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(__unused NSTimer *t) { [weakSelf updateBlocked]; }];
     _timer.tolerance = 0.5;
-    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(sync) name:ADSettingsDidChangeNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(sync) name:TweakSettingsDidChangeNotification object:nil];
     return self;
 }
 
@@ -258,7 +258,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 
 - (void)updateBlocked {
     self.blockedLabel.stringValue = [NSString stringWithFormat:@"%lu requests blocked since launch. Blocking changes fully apply after restarting Dia.",
-                                     (unsigned long)ADBlockedRequestCount()];
+                                     (unsigned long)TweakBlockedRequestCount()];
 }
 
 - (void)setRow:(NSString *)key enabled:(BOOL)on {
@@ -269,27 +269,27 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 }
 
 - (void)sync {
-    ADURLBarMode mode = ADSettings.urlBarMode;
+    TweakURLBarMode mode = TweakSettings.urlBarMode;
     [self.modePopup selectItemWithTag:mode];
-    [self.commandBarPopup selectItemWithTag:ADCommandBarCurrentStyle()];
-    [self.rendererPopup selectItemWithTag:[NSUserDefaults.standardUserDefaults integerForKey:ADKeyRendererLimit]];
-    [self setRow:ADKeyDisableOnDeviceAI enabled:[ADSettings boolForKey:ADKeyHideAI]];
-    for (NSString *key in self.switches) self.switches[key].state = [ADSettings boolForKey:key] ? NSControlStateValueOn : NSControlStateValueOff;
-    [self setRow:ADKeyRevealOnHover enabled:mode != ADURLBarModeTop];
-    for (NSString *k in @[ADKeyCmdLFocusesSidebar, ADKeySidebarFullURL, ADKeySidebarNavButtons])
-        [self setRow:k enabled:mode == ADURLBarModeSidebar];
+    [self.commandBarPopup selectItemWithTag:TweakCommandBarCurrentStyle()];
+    [self.rendererPopup selectItemWithTag:[NSUserDefaults.standardUserDefaults integerForKey:TweakKeyRendererLimit]];
+    [self setRow:TweakKeyDisableOnDeviceAI enabled:[TweakSettings boolForKey:TweakKeyHideAI]];
+    for (NSString *key in self.switches) self.switches[key].state = [TweakSettings boolForKey:key] ? NSControlStateValueOn : NSControlStateValueOff;
+    [self setRow:TweakKeyRevealOnHover enabled:mode != TweakURLBarModeTop];
+    for (NSString *k in @[TweakKeyCmdLFocusesSidebar, TweakKeySidebarFullURL, TweakKeySidebarNavButtons])
+        [self setRow:k enabled:mode == TweakURLBarModeSidebar];
 }
 
-- (void)modeChanged:(NSPopUpButton *)p { [ADSettings setURLBarMode:p.selectedTag]; }
+- (void)modeChanged:(NSPopUpButton *)p { [TweakSettings setURLBarMode:p.selectedTag]; }
 - (void)commandBarChanged:(NSPopUpButton *)p {
-    [NSUserDefaults.standardUserDefaults setInteger:p.selectedTag forKey:ADKeyCommandBarStyle];
-    [NSNotificationCenter.defaultCenter postNotificationName:ADSettingsDidChangeNotification object:nil];
+    [NSUserDefaults.standardUserDefaults setInteger:p.selectedTag forKey:TweakKeyCommandBarStyle];
+    [NSNotificationCenter.defaultCenter postNotificationName:TweakSettingsDidChangeNotification object:nil];
 }
 - (void)rendererChanged:(NSPopUpButton *)p {
-    [NSUserDefaults.standardUserDefaults setInteger:p.selectedTag forKey:ADKeyRendererLimit];
-    [NSNotificationCenter.defaultCenter postNotificationName:ADSettingsDidChangeNotification object:nil];
+    [NSUserDefaults.standardUserDefaults setInteger:p.selectedTag forKey:TweakKeyRendererLimit];
+    [NSNotificationCenter.defaultCenter postNotificationName:TweakSettingsDidChangeNotification object:nil];
 }
-- (void)switchChanged:(NSSwitch *)s { [ADSettings setBool:s.state == NSControlStateValueOn forKey:s.identifier]; }
+- (void)switchChanged:(NSSwitch *)s { [TweakSettings setBool:s.state == NSControlStateValueOn forKey:s.identifier]; }
 
 @end
 
@@ -330,11 +330,11 @@ static NSTextField *titleField(NSWindow *w) {
 static void showPane(NSWindow *w, BOOL show) {
     NSView *host = paneHost(w);
     if (!host) return;
-    ADPrefsPane *pane = objc_getAssociatedObject(w, kPaneKey);
+    TweakPrefsPane *pane = objc_getAssociatedObject(w, kPaneKey);
     NSTextField *title = titleField(w);
     if (show) {
         if (!pane) {
-            pane = [[ADPrefsPane alloc] initWithFrame:host.bounds];
+            pane = [[TweakPrefsPane alloc] initWithFrame:host.bounds];
             pane.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
             objc_setAssociatedObject(w, kPaneKey, pane, OBJC_ASSOCIATION_RETAIN);
         }
@@ -401,12 +401,12 @@ static void hookedSelectionDidChange(id self, SEL _cmd, NSNotification *n) {
     origSelectionDidChange(self, _cmd, n);
 }
 
-void ADPreferencesInstall(void) {
+void TweakPreferencesInstall(void) {
     Class cls = NSClassFromString(kListClass);
     if (!cls) { NSLog(@"[daypatch] %@ not found; settings pane inactive", kListClass); return; }
-    origNumberOfRows = (void *)ADHook(cls, @selector(numberOfRowsInTableView:), (IMP)hookedNumberOfRows);
-    origViewForRow = (void *)ADHook(cls, @selector(tableView:viewForTableColumn:row:), (IMP)hookedViewForRow);
-    origSelectionDidChange = (void *)ADHook(cls, @selector(tableViewSelectionDidChange:), (IMP)hookedSelectionDidChange);
+    origNumberOfRows = (void *)TweakHook(cls, @selector(numberOfRowsInTableView:), (IMP)hookedNumberOfRows);
+    origViewForRow = (void *)TweakHook(cls, @selector(tableView:viewForTableColumn:row:), (IMP)hookedViewForRow);
+    origSelectionDidChange = (void *)TweakHook(cls, @selector(tableViewSelectionDidChange:), (IMP)hookedSelectionDidChange);
     if (!origNumberOfRows || !origViewForRow || !origSelectionDidChange)
         NSLog(@"[daypatch] settings hooks incomplete");
 }

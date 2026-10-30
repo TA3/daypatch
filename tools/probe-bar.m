@@ -35,7 +35,7 @@ __attribute__((constructor)) static void init(void) {
         for (NSWindow *x in NSApp.windows) if ([NSStringFromClass(x.class) isEqualToString:@"Window.PlatformWindow"] && x.isVisible) w = x;
         [NSApp activateIgnoringOtherApps:YES];
         [w makeKeyAndOrderFront:nil];
-        void (*navigate)(NSWindow *, NSString *) = dlsym(RTLD_DEFAULT, "ADNavigateWindow");
+        void (*navigate)(NSWindow *, NSString *) = dlsym(RTLD_DEFAULT, "TweakNavigateWindow");
         navigate(w, @"https://example.com");
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         NSView *bar = find(w.contentView.superview, @"NavigationBar.AssistantBarView");

@@ -1,5 +1,5 @@
 // daypatch entry point: installs all patches once AppKit is up.
-#import "ADCommon.h"
+#import "Common.h"
 #include <stdlib.h>
 
 static void installKeyMonitor(void) {
@@ -7,18 +7,18 @@ static void installKeyMonitor(void) {
         NSEventModifierFlags mods = e.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask;
         NSString *key = e.charactersIgnoringModifiers.lowercaseString;
         if (mods == (NSEventModifierFlagControl | NSEventModifierFlagCommand) && [key isEqualToString:@"u"]) {
-            [ADSettings toggleHiding];
+            [TweakSettings toggleHiding];
             return nil;
         }
         NSWindow *w = e.window ?: NSApp.keyWindow;
-        BOOL native = ADCommandBarCurrentStyle() == ADCommandBarStyleNative;
-        if (mods == NSEventModifierFlagCommand && [key isEqualToString:@"t"] && (native ? ADCommandBarShow(w, YES) : ADPaletteOpen(w)))
+        BOOL native = TweakCommandBarCurrentStyle() == TweakCommandBarStyleNative;
+        if (mods == NSEventModifierFlagCommand && [key isEqualToString:@"t"] && (native ? TweakCommandBarShow(w, YES) : TweakPaletteOpen(w)))
             return nil;
-        if (mods == NSEventModifierFlagCommand && [key isEqualToString:@"l"] && native && ADCommandBarShow(w, NO))
+        if (mods == NSEventModifierFlagCommand && [key isEqualToString:@"l"] && native && TweakCommandBarShow(w, NO))
             return nil;
         if (mods == NSEventModifierFlagCommand && [key isEqualToString:@"l"] &&
-            ADSettings.urlBarMode == ADURLBarModeSidebar && ADSettings.cmdLFocusesSidebar &&
-            ADSidebarFocusURLBar(e.window ?: NSApp.keyWindow))
+            TweakSettings.urlBarMode == TweakURLBarModeSidebar && TweakSettings.cmdLFocusesSidebar &&
+            TweakSidebarFocusURLBar(e.window ?: NSApp.keyWindow))
             return nil;
         return e;
     }];
@@ -27,17 +27,17 @@ static void installKeyMonitor(void) {
 __attribute__((constructor)) static void init(void) {
     // Don't leak into Chromium helper processes.
     unsetenv("DYLD_INSERT_LIBRARIES");
-    ADPrivacyPatchArgv();
-    ADPrivacyInstall();  // URLSession hooks must exist before Dia creates its sessions
-    ADPerformanceInstall();
+    TweakPrivacyPatchArgv();
+    TweakPrivacyInstall();  // URLSession hooks must exist before Dia creates its sessions
+    TweakPerformanceInstall();
     dispatch_async(dispatch_get_main_queue(), ^{
-        ADNavBarInstall();
-        ADSidebarInstall();
-        ADPreferencesInstall();
-        ADPaletteInstall();
+        TweakNavBarInstall();
+        TweakSidebarInstall();
+        TweakPreferencesInstall();
+        TweakPaletteInstall();
         installKeyMonitor();
         NSLog(@"[daypatch] installed");
-        ADHealthWrite();
-        ADKickCompanionOnQuit();
+        TweakHealthWrite();
+        TweakKickCompanionOnQuit();
     });
 }

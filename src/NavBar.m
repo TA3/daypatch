@@ -1,7 +1,7 @@
 // Hides Dia's per-pane navigation bar (URL + back/forward/reload) and lets the
 // web content fill the freed space. The bar can reappear as an overlay when the
 // mouse touches the top edge of a pane, and stays while its URL field has focus.
-#import "ADCommon.h"
+#import "Common.h"
 
 static NSString *const kPaneClass = @"ContentPane.ContentPaneView";
 static NSString *const kBarClass = @"NavigationBar.NavigationBarView";
@@ -15,11 +15,11 @@ static NSHashTable<NSView *> *gPanes;
 static NSMapTable<NSView *, NSNumber *> *gRevealed;
 static void (*origLayout)(id, SEL);
 
-BOOL ADNavBarShouldHideInWindow(NSWindow *window) {
-    switch (ADSettings.urlBarMode) {
-        case ADURLBarModeTop: return NO;
-        case ADURLBarModeHidden: return YES;
-        case ADURLBarModeSidebar: return ADSidebarHasURLBar(window);
+BOOL TweakNavBarShouldHideInWindow(NSWindow *window) {
+    switch (TweakSettings.urlBarMode) {
+        case TweakURLBarModeTop: return NO;
+        case TweakURLBarModeHidden: return YES;
+        case TweakURLBarModeSidebar: return TweakSidebarHasURLBar(window);
     }
     return NO;
 }
@@ -27,12 +27,12 @@ BOOL ADNavBarShouldHideInWindow(NSWindow *window) {
 static BOOL isRevealed(NSView *pane) { return [[gRevealed objectForKey:pane] boolValue]; }
 
 static void applyPane(NSView *pane) {
-    NSView *bar = ADChildOfClass(pane, kBarClass);
-    NSView *content = ADChildOfClass(pane, kContentClass);
+    NSView *bar = TweakChildOfClass(pane, kBarClass);
+    NSView *content = TweakChildOfClass(pane, kContentClass);
     if (!bar || !content) return;
     NSRect b = pane.bounds;
     if (NSHeight(bar.frame) >= 1) gBarHeight = NSHeight(bar.frame);
-    if (!ADNavBarShouldHideInWindow(pane.window)) {
+    if (!TweakNavBarShouldHideInWindow(pane.window)) {
         bar.hidden = NO;
         return;
     }
@@ -43,7 +43,7 @@ static void applyPane(NSView *pane) {
         cf.size.height = NSHeight(b);
         content.frame = cf;
     }
-    NSView *info = ADChildOfClass(pane, kInfoBarClass);
+    NSView *info = TweakChildOfClass(pane, kInfoBarClass);
     if (info && NSMinY(info.frame) == gBarHeight) {
         NSRect f = info.frame;
         f.origin.y = 0;
@@ -65,7 +65,7 @@ static void hookedLayout(NSView *self, SEL _cmd) {
 static void (*origContentSetFrame)(id, SEL, NSRect);
 static void hookedContentSetFrame(NSView *self, SEL _cmd, NSRect f) {
     NSView *pane = self.superview;
-    if ([gPanes containsObject:pane] && ADNavBarShouldHideInWindow(pane.window)) {
+    if ([gPanes containsObject:pane] && TweakNavBarShouldHideInWindow(pane.window)) {
         f.origin.y = 0;
         f.size.height = NSHeight(pane.bounds);
     }
@@ -75,7 +75,7 @@ static void hookedContentSetFrame(NSView *self, SEL _cmd, NSRect f) {
 static void (*origBarSetHidden)(id, SEL, BOOL);
 static void hookedBarSetHidden(NSView *self, SEL _cmd, BOOL hidden) {
     NSView *pane = self.superview;
-    if (!hidden && [gPanes containsObject:pane] && ADNavBarShouldHideInWindow(pane.window) && !isRevealed(pane)) hidden = YES;
+    if (!hidden && [gPanes containsObject:pane] && TweakNavBarShouldHideInWindow(pane.window) && !isRevealed(pane)) hidden = YES;
     origBarSetHidden(self, _cmd, hidden);
 }
 
@@ -93,11 +93,11 @@ static BOOL barHasFocus(NSView *bar) {
 static void updateReveal(void) {
     for (NSView *pane in gPanes.allObjects) {
         if (!pane.window) continue;
-        NSView *bar = ADChildOfClass(pane, kBarClass);
+        NSView *bar = TweakChildOfClass(pane, kBarClass);
         if (!bar) continue;
         BOOL want = NO;
-        if (ADNavBarShouldHideInWindow(pane.window) && pane.window.isKeyWindow) {
-            if (ADSettings.revealOnHover) {
+        if (TweakNavBarShouldHideInWindow(pane.window) && pane.window.isKeyWindow) {
+            if (TweakSettings.revealOnHover) {
                 NSPoint p = [pane convertPoint:pane.window.mouseLocationOutsideOfEventStream fromView:nil];
                 BOOL inX = p.x >= 0 && p.x <= NSWidth(pane.bounds);
                 CGFloat top = pane.isFlipped ? p.y : NSHeight(pane.bounds) - p.y;
@@ -116,9 +116,9 @@ static void updateReveal(void) {
 static void relayoutAll(void) {
     for (NSView *pane in gPanes.allObjects) {
         [gRevealed setObject:@NO forKey:pane];
-        if (!ADNavBarShouldHideInWindow(pane.window)) {
+        if (!TweakNavBarShouldHideInWindow(pane.window)) {
             // Let Dia's own layout restore the original frames.
-            ADChildOfClass(pane, kBarClass).hidden = NO;
+            TweakChildOfClass(pane, kBarClass).hidden = NO;
             [pane.superview setNeedsLayout:YES];
         }
         pane.needsLayout = YES;
@@ -136,9 +136,9 @@ static NSView *focusedPane(NSWindow *window) {
     return fallback;
 }
 
-void ADNavBarPerform(NSWindow *window, NSInteger index) {
+void TweakNavBarPerform(NSWindow *window, NSInteger index) {
     // Prefer Dia's own (hidden) buttons so behaviour matches the stock bar.
-    NSView *bar = ADChildOfClass(focusedPane(window), kBarClass);
+    NSView *bar = TweakChildOfClass(focusedPane(window), kBarClass);
     NSMutableArray<NSControl *> *controls = [NSMutableArray array];
     for (NSView *row in bar.subviews)
         for (NSView *v in row.subviews)
@@ -151,15 +151,15 @@ void ADNavBarPerform(NSWindow *window, NSInteger index) {
     if (index < 2) {
         // Walk this window's responder chain (NSApp's would use whatever window is key).
         SEL sel = NSSelectorFromString(index == 0 ? @"navigateTabBack:" : @"navigateTabForward:");
-        NSView *web = ADDescendantOfClass(focusedPane(window), @"WebContentsPaneHostView");
+        NSView *web = TweakDescendantOfClass(focusedPane(window), @"WebContentsPaneHostView");
         for (NSResponder *r = web ?: window.firstResponder; r; r = r.nextResponder)
             if ([r respondsToSelector:sel]) { [NSApp sendAction:sel to:r from:nil]; return; }
         for (id t in @[window, (id)window.delegate ?: NSNull.null, window.windowController ?: NSNull.null, (id)NSApp.delegate ?: NSNull.null])
             if ([t respondsToSelector:sel]) { [NSApp sendAction:sel to:t from:nil]; return; }
         NSLog(@"[daypatch] no target for %@", NSStringFromSelector(sel));
     } else {
-        NSString *url = ADURLForWindow(window);
-        if (url) ADNavigateWindow(window, url);
+        NSString *url = TweakURLForWindow(window);
+        if (url) TweakNavigateWindow(window, url);
     }
 }
 
@@ -184,8 +184,8 @@ static NSRect anchoredFrame(NSView *popover, NSRect proposed) {
     CGFloat h = NSHeight(proposed);
     // Drop the space of a hidden bottom toolbar (AI controls hidden by the privacy
     // module), but only while Dia's proposed height still includes it.
-    NSView *toolbar = ADDescendantOfClass(popover, @"BoostCommandBar.ToolbarView");
-    NSView *root = ADDescendantOfClass(popover, @"BoostCommandBar.RootView");
+    NSView *toolbar = TweakDescendantOfClass(popover, @"BoostCommandBar.ToolbarView");
+    NSView *root = TweakDescendantOfClass(popover, @"BoostCommandBar.RootView");
     if (toolbar.hidden && root) {
         CGFloat chrome = NSHeight(popover.frame) - NSHeight(root.frame);  // popover padding around the editor
         if (h - chrome >= NSMaxY(toolbar.frame) - 1) h -= NSHeight(toolbar.frame);
@@ -202,7 +202,7 @@ static void hookedPopoverSetFrame(NSView *self, SEL _cmd, NSRect frame) {
 static Class popoverClass(void) {
     static Class cls;
     static dispatch_once_t once;
-    dispatch_once(&once, ^{ cls = ADFindClass(@"_TtCC14DynamicPopover", @"RootView"); });
+    dispatch_once(&once, ^{ cls = TweakFindClass(@"_TtCC14DynamicPopover", @"RootView"); });
     return cls;
 }
 
@@ -224,15 +224,15 @@ static void clickView(NSView *v) {
                                     windowNumber:w.windowNumber context:nil eventNumber:0 clickCount:1 pressure:1]];
 }
 
-BOOL ADNavBarOpenEditor(NSWindow *window, NSRect anchorInWindow) {
+BOOL TweakNavBarOpenEditor(NSWindow *window, NSRect anchorInWindow) {
     NSView *pane = focusedPane(window);
-    NSView *bar = ADChildOfClass(pane, kBarClass);
+    NSView *bar = TweakChildOfClass(pane, kBarClass);
     if (!bar) return NO;
     // The field must be on screen to take the click: reveal the bar for a moment.
     [gRevealed setObject:@YES forKey:pane];
     applyPane(pane);
     [pane layoutSubtreeIfNeeded];
-    NSView *field = ADDescendantOfClass(bar, @"NavigationBar.AssistantBarView");
+    NSView *field = TweakDescendantOfClass(bar, @"NavigationBar.AssistantBarView");
     if (!field || field.isHiddenOrHasHiddenAncestor) return NO;
 
     gAnchorWindow = popoverClass() ? window : nil;
@@ -247,39 +247,39 @@ BOOL ADNavBarOpenEditor(NSWindow *window, NSRect anchorInWindow) {
     return YES;
 }
 
-void ADNavBarInstall(void) {
+void TweakNavBarInstall(void) {
     Class cls = NSClassFromString(kPaneClass);
     if (!cls) { NSLog(@"[daypatch] %@ not found; URL bar hiding inactive", kPaneClass); return; }
     gPanes = [NSHashTable weakObjectsHashTable];
     gRevealed = [NSMapTable weakToStrongObjectsMapTable];
-    origLayout = (void *)ADHook(cls, @selector(layout), (IMP)hookedLayout);
-    if (popoverClass()) origPopoverSetFrame = (void *)ADHook(popoverClass(), @selector(setFrame:), (IMP)hookedPopoverSetFrame);
+    origLayout = (void *)TweakHook(cls, @selector(layout), (IMP)hookedLayout);
+    if (popoverClass()) origPopoverSetFrame = (void *)TweakHook(popoverClass(), @selector(setFrame:), (IMP)hookedPopoverSetFrame);
     else NSLog(@"[daypatch] DynamicPopover root not found; editor opens at the top");
     // Dia moves the bar and content outside layout passes (e.g. animating back after
     // Esc in its URL editor); correct those moves as they happen.
     Class content = NSClassFromString(kContentClass);
-    if (content) origContentSetFrame = (void *)ADHook(content, @selector(setFrame:), (IMP)hookedContentSetFrame);
+    if (content) origContentSetFrame = (void *)TweakHook(content, @selector(setFrame:), (IMP)hookedContentSetFrame);
     Class barCls = NSClassFromString(kBarClass);
-    if (barCls) origBarSetHidden = (void *)ADHook(barCls, @selector(setHidden:), (IMP)hookedBarSetHidden);
+    if (barCls) origBarSetHidden = (void *)TweakHook(barCls, @selector(setHidden:), (IMP)hookedBarSetHidden);
 
     // Hover reveal follows the mouse; a slow timer catches the pointer leaving the
     // window and focus changes.
     [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskMouseMoved | NSEventMaskMouseExited handler:^NSEvent *(NSEvent *e) {
-        if (ADSettings.urlBarMode != ADURLBarModeTop) updateReveal();
+        if (TweakSettings.urlBarMode != TweakURLBarModeTop) updateReveal();
         return e;
     }];
     NSTimer *timer = [NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(__unused NSTimer *t) {
-        if (ADSettings.urlBarMode != ADURLBarModeTop) updateReveal();
+        if (TweakSettings.urlBarMode != TweakURLBarModeTop) updateReveal();
         // The anchor lasts for one editing session (or 2 s if the editor never opened).
         NSWindow *w = gAnchorWindow;
         if (!w) return;
         if (openPopover(w)) gAnchorSeen = YES;
         else if (gAnchorSeen || NSDate.timeIntervalSinceReferenceDate - gAnchorTime > 2) {
             gAnchorWindow = nil;
-            ADPaletteEditorClosed(w);
+            TweakPaletteEditorClosed(w);
         }
     }];
     timer.tolerance = 0.25;
-    [NSNotificationCenter.defaultCenter addObserverForName:ADSettingsDidChangeNotification object:nil queue:nil
+    [NSNotificationCenter.defaultCenter addObserverForName:TweakSettingsDidChangeNotification object:nil queue:nil
                                                 usingBlock:^(__unused NSNotification *n) { relayoutAll(); }];
 }

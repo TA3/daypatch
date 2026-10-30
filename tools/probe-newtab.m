@@ -18,8 +18,8 @@ static void runCase(NSWindow *w, NSArray *cases, NSUInteger i) {
     if (i >= cases.count) { [out writeToFile:@"/tmp/daypatch-newtab.txt" atomically:YES encoding:NSUTF8StringEncoding error:nil]; return; }
     NSString *name = cases[i][0];
     NSEventModifierFlags mods = [cases[i][1] unsignedIntegerValue];
-    NSString *(*urlFor)(NSWindow *) = dlsym(RTLD_DEFAULT, "ADURLForWindow");
-    BOOL (*openEditor)(NSWindow *) = dlsym(RTLD_DEFAULT, "ADSidebarFocusURLBar");
+    NSString *(*urlFor)(NSWindow *) = dlsym(RTLD_DEFAULT, "TweakURLForWindow");
+    BOOL (*openEditor)(NSWindow *) = dlsym(RTLD_DEFAULT, "TweakSidebarFocusURLBar");
     NSInteger before = tabCount(w);
     NSString *beforeURL = urlFor(w);
     openEditor(w);
@@ -34,7 +34,7 @@ static void runCase(NSWindow *w, NSArray *cases, NSUInteger i) {
             after(3, ^{
                 [out appendFormat:@"%@: tabs %ld -> %ld, active %@ -> %@\n", name, (long)before, (long)tabCount(w), beforeURL, urlFor(w)];
                 // Reset: back to the starting page in whatever tab is active.
-                void (*navigate)(NSWindow *, NSString *) = dlsym(RTLD_DEFAULT, "ADNavigateWindow");
+                void (*navigate)(NSWindow *, NSString *) = dlsym(RTLD_DEFAULT, "TweakNavigateWindow");
                 navigate(w, @"https://example.com");
                 after(2.5, ^{ runCase(w, cases, i + 1); });
             });
@@ -49,7 +49,7 @@ __attribute__((constructor)) static void init(void) {
         for (NSWindow *x in NSApp.windows) if ([NSStringFromClass(x.class) isEqualToString:@"Window.PlatformWindow"] && x.isVisible) w = x;
         [NSApp activateIgnoringOtherApps:YES];
         [w makeKeyAndOrderFront:nil];
-        void (*navigate)(NSWindow *, NSString *) = dlsym(RTLD_DEFAULT, "ADNavigateWindow");
+        void (*navigate)(NSWindow *, NSString *) = dlsym(RTLD_DEFAULT, "TweakNavigateWindow");
         navigate(w, @"https://example.com");
         // Menu items that might mean "open in new tab" while editing.
         for (NSMenuItem *top in NSApp.mainMenu.itemArray) for (NSMenuItem *it in top.submenu.itemArray)

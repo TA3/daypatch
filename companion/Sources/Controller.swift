@@ -113,7 +113,7 @@ final class Controller: ObservableObject {
         case .diaMissing: return "Dia isn't installed in /Applications"
         case .notInstalled: return patchInPlace ? "Dia isn't patched yet" : "Not built yet"
         case .restored: return "Original Dia restored — patch to use \(PatchEngine.appName)"
-        case .upToDate: return "\(PatchEngine.appName) · Dia \(status.diaVersion ?? "")"
+        case .upToDate: return "Patched for Dia \(status.diaVersion ?? "")"
         case .needsPatch(let why): return "Needs patching: \(why)" + (pendingRepatch ? " — waiting for \(PatchEngine.targetName) to quit" : "")
         }
     }

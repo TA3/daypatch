@@ -2,10 +2,10 @@
 // open tabs, history, bookmarks, Dia's menu commands, chrome:// pages, or searches.
 //   ⌘T          new-tab mode (results open in a new tab)
 //   ⌘L / pill   current-tab mode, pre-filled with the current URL
-#import "ADCommon.h"
-#import "ADCommandSources.h"
+#import "Common.h"
+#import "CommandSources.h"
 
-typedef NS_ENUM(NSInteger, ADCommandBarMode) { ADCommandBarNewTab, ADCommandBarCurrentTab };
+typedef NS_ENUM(NSInteger, TweakCommandBarMode) { TweakCommandBarNewTab, TweakCommandBarCurrentTab };
 
 static const CGFloat kWidth = 760;
 static const CGFloat kInputHeight = 64;
@@ -26,24 +26,24 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
 
 #pragma mark - Results list
 
-@class ADResultsView;
-@protocol ADResultsViewDelegate
-- (void)resultsView:(ADResultsView *)v activate:(NSInteger)row;
-- (NSImage *)iconForItem:(ADItem *)item;
+@class TweakResultsView;
+@protocol TweakResultsViewDelegate
+- (void)resultsView:(TweakResultsView *)v activate:(NSInteger)row;
+- (NSImage *)iconForItem:(TweakItem *)item;
 @end
 
-@interface ADResultsView : NSView
-@property (nonatomic, copy) NSArray<ADItem *> *items;
+@interface TweakResultsView : NSView
+@property (nonatomic, copy) NSArray<TweakItem *> *items;
 @property (nonatomic) NSInteger selected;
-@property (nonatomic, weak) id<ADResultsViewDelegate> delegate;
+@property (nonatomic, weak) id<TweakResultsViewDelegate> delegate;
 @end
 
-@implementation ADResultsView
+@implementation TweakResultsView
 
 - (BOOL)isFlipped { return YES; }
 - (BOOL)acceptsFirstMouse:(NSEvent *)e { return YES; }
 
-- (void)setItems:(NSArray<ADItem *> *)items { _items = [items copy]; _selected = items.count ? 0 : -1; self.needsDisplay = YES; }
+- (void)setItems:(NSArray<TweakItem *> *)items { _items = [items copy]; _selected = items.count ? 0 : -1; self.needsDisplay = YES; }
 - (void)setSelected:(NSInteger)s { _selected = s; self.needsDisplay = YES; }
 
 - (NSRect)rectForRow:(NSInteger)r {
@@ -78,7 +78,7 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
     NSMutableParagraphStyle *trunc = [NSMutableParagraphStyle new];
     trunc.lineBreakMode = NSLineBreakByTruncatingMiddle;
     for (NSInteger r = 0; r < (NSInteger)self.items.count; r++) {
-        ADItem *it = self.items[r];
+        TweakItem *it = self.items[r];
         NSRect row = [self rectForRow:r];
         if (r == self.selected) {
             [dyn(1, 0.10, 0, 0.07) setFill];
@@ -88,13 +88,13 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
         // Icon: favicon, or a symbol (commands get a filled tile, like Arc).
         NSRect iconRect = NSMakeRect(NSMinX(row) + 14, NSMidY(row) - 10, 20, 20);
         NSImage *icon = [self.delegate iconForItem:it];
-        if (it.kind == ADItemCommand || it.kind == ADItemPage) {
+        if (it.kind == TweakItemCommand || it.kind == TweakItemPage) {
             NSRect tile = NSInsetRect(iconRect, -4, -4);
-            [(it.kind == ADItemCommand ? NSColor.labelColor : dyn(1, 0.14, 0, 0.08)) setFill];
+            [(it.kind == TweakItemCommand ? NSColor.labelColor : dyn(1, 0.14, 0, 0.08)) setFill];
             [[NSBezierPath bezierPathWithRoundedRect:tile xRadius:7 yRadius:7] fill];
             NSImage *sym = [[NSImage imageWithSystemSymbolName:it.symbol accessibilityDescription:nil]
                             imageWithSymbolConfiguration:[NSImageSymbolConfiguration configurationWithPointSize:13 weight:NSFontWeightMedium]];
-            NSColor *tint = it.kind == ADItemCommand ? NSColor.windowBackgroundColor : NSColor.labelColor;
+            NSColor *tint = it.kind == TweakItemCommand ? NSColor.windowBackgroundColor : NSColor.labelColor;
             [self drawSymbol:sym in:iconRect tint:tint];
         } else if (icon) {
             if (r == self.selected) {
@@ -111,8 +111,8 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
 
         // Title — detail, with the detail truncated first.
         CGFloat x = NSMaxX(iconRect) + 16, maxX = NSMaxX(row) - 16;
-        NSString *right = it.kind == ADItemCommand ? it.detail : nil;
-        if (it.kind == ADItemTab) {
+        NSString *right = it.kind == TweakItemCommand ? it.detail : nil;
+        if (it.kind == TweakItemTab) {
             // "Switch to Tab" + arrow chip; bright when selected.
             BOOL sel = r == self.selected;
             NSRect chip = NSMakeRect(maxX - 28 + 4, NSMidY(row) - 14, 28, 28);
@@ -137,11 +137,11 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
         NSString *title = it.title ?: @"";
         NSSize ts = [title sizeWithAttributes:ta];
         CGFloat titleW = MIN(ts.width, (maxX - x) * 0.6);
-        if (!(it.kind == ADItemHistory || it.kind == ADItemBookmark || it.kind == ADItemPage || it.kind == ADItemSearch || it.kind == ADItemURL)) titleW = MIN(ts.width, maxX - x);
+        if (!(it.kind == TweakItemHistory || it.kind == TweakItemBookmark || it.kind == TweakItemPage || it.kind == TweakItemSearch || it.kind == TweakItemURL)) titleW = MIN(ts.width, maxX - x);
         [title drawInRect:NSMakeRect(x, NSMidY(row) - ts.height / 2, titleW, ts.height) withAttributes:ta];
         NSString *detail = nil;
-        if (it.kind == ADItemHistory || it.kind == ADItemBookmark || it.kind == ADItemPage) detail = [self prettyURL:it.url];
-        else if (it.kind == ADItemSearch || it.kind == ADItemURL) detail = it.detail;
+        if (it.kind == TweakItemHistory || it.kind == TweakItemBookmark || it.kind == TweakItemPage) detail = [self prettyURL:it.url];
+        else if (it.kind == TweakItemSearch || it.kind == TweakItemURL) detail = it.detail;
         if (detail.length) {
             NSDictionary *da = @{NSFontAttributeName: detailFont, NSForegroundColorAttributeName: detailColor(), NSParagraphStyleAttributeName: trunc};
             NSString *d = [@"— " stringByAppendingString:detail];
@@ -177,42 +177,42 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
 
 #pragma mark - Panel
 
-@interface ADCommandPanel : NSPanel
+@interface TweakCommandPanel : NSPanel
 @end
 
-@implementation ADCommandPanel
+@implementation TweakCommandPanel
 - (BOOL)canBecomeKeyWindow { return YES; }
 - (BOOL)canBecomeMainWindow { return NO; }
 @end
 
-@interface ADCommandBar : NSObject <NSTextFieldDelegate, NSWindowDelegate, ADResultsViewDelegate>
-@property (nonatomic, strong) ADCommandPanel *panel;
+@interface TweakCommandBar : NSObject <NSTextFieldDelegate, NSWindowDelegate, TweakResultsViewDelegate>
+@property (nonatomic, strong) TweakCommandPanel *panel;
 @property (nonatomic, strong) NSVisualEffectView *background;
 @property (nonatomic, strong) NSTextField *field;
 @property (nonatomic, strong) NSImageView *fieldIcon;
 @property (nonatomic, strong) NSBox *divider;
-@property (nonatomic, strong) ADResultsView *results;
-@property (nonatomic, strong) ADCommandSources *sources;
+@property (nonatomic, strong) TweakResultsView *results;
+@property (nonatomic, strong) TweakCommandSources *sources;
 @property (nonatomic, weak) NSWindow *host;
-@property (nonatomic) ADCommandBarMode mode;
+@property (nonatomic) TweakCommandBarMode mode;
 @property (nonatomic, copy) NSString *typed;       // what the user typed (without inline completion)
 @property (nonatomic) BOOL suppressCompletion;     // after a deletion
 @end
 
-@implementation ADCommandBar
+@implementation TweakCommandBar
 
 + (instancetype)shared {
-    static ADCommandBar *bar;
+    static TweakCommandBar *bar;
     static dispatch_once_t once;
-    dispatch_once(&once, ^{ bar = [ADCommandBar new]; });
+    dispatch_once(&once, ^{ bar = [TweakCommandBar new]; });
     return bar;
 }
 
 - (instancetype)init {
     if (!(self = [super init])) return nil;
-    _sources = [ADCommandSources new];
+    _sources = [TweakCommandSources new];
 
-    _panel = [[ADCommandPanel alloc] initWithContentRect:NSMakeRect(0, 0, kWidth, kInputHeight)
+    _panel = [[TweakCommandPanel alloc] initWithContentRect:NSMakeRect(0, 0, kWidth, kInputHeight)
                                                styleMask:NSWindowStyleMaskBorderless | NSWindowStyleMaskFullSizeContentView
                                                  backing:NSBackingStoreBuffered defer:YES];
     _panel.opaque = NO;
@@ -255,7 +255,7 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
     _divider.boxType = NSBoxSeparator;
     [_background addSubview:_divider];
 
-    _results = [[ADResultsView alloc] initWithFrame:NSZeroRect];
+    _results = [[TweakResultsView alloc] initWithFrame:NSZeroRect];
     _results.delegate = self;
     [_background addSubview:_results];
     return self;
@@ -263,7 +263,7 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
 
 #pragma mark Showing
 
-- (void)showInWindow:(NSWindow *)window mode:(ADCommandBarMode)mode {
+- (void)showInWindow:(NSWindow *)window mode:(TweakCommandBarMode)mode {
     if (!window) return;
     if (self.panel.isVisible) [self close];
     self.host = window;
@@ -279,8 +279,8 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
     [self.sources prepareForWindow:window];
 
     NSString *initial = @"";
-    if (mode == ADCommandBarCurrentTab) {
-        NSString *u = ADURLForWindow(window);
+    if (mode == TweakCommandBarCurrentTab) {
+        NSString *u = TweakURLForWindow(window);
         if (u.length && ![u hasPrefix:@"dia://"]) initial = u;
     }
     self.field.stringValue = initial;
@@ -291,7 +291,7 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
     [self.panel makeFirstResponder:self.field];
     [self.field.currentEditor selectAll:nil];
     // Current-tab mode starts with the URL selected and no list (like Arc's ⌘L).
-    if (mode == ADCommandBarNewTab) [self runQuery];
+    if (mode == TweakCommandBarNewTab) [self runQuery];
     else [self showItems:@[]];
 }
 
@@ -327,7 +327,7 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
 - (void)runQuery {
     NSString *q = self.typed ?: @"";
     __weak typeof(self) weakSelf = self;
-    [self.sources query:q done:^(NSArray<ADItem *> *items) {
+    [self.sources query:q done:^(NSArray<TweakItem *> *items) {
         typeof(self) s = weakSelf;
         if (![s.typed isEqualToString:q]) return;
         [s showItems:items];
@@ -335,22 +335,22 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
     }];
 }
 
-- (void)showItems:(NSArray<ADItem *> *)items {
+- (void)showItems:(NSArray<TweakItem *> *)items {
     self.results.items = items;
     [self layoutForRows:MIN(kMaxRows, items.count)];
     [self updateFieldIcon];
 }
 
 - (void)updateFieldIcon {
-    ADItem *top = self.results.selected >= 0 ? self.results.items[self.results.selected] : nil;
+    TweakItem *top = self.results.selected >= 0 ? self.results.items[self.results.selected] : nil;
     NSImage *img = top ? [self iconForItem:top] : nil;
-    if (!img || top.kind == ADItemCommand || top.kind == ADItemPage)
+    if (!img || top.kind == TweakItemCommand || top.kind == TweakItemPage)
         img = [NSImage imageWithSystemSymbolName:top ? top.symbol : @"magnifyingglass" accessibilityDescription:nil];
     self.fieldIcon.image = img;
 }
 
 // Inline completion: "git" -> "git|hub.com" with the suffix selected.
-- (void)applyCompletionFrom:(NSArray<ADItem *> *)items {
+- (void)applyCompletionFrom:(NSArray<TweakItem *> *)items {
     if (self.suppressCompletion) return;
     NSString *host = [self.sources completionFor:self.typed inItems:items];
     NSText *editor = self.field.currentEditor;
@@ -396,42 +396,42 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
 
 #pragma mark Activation
 
-- (void)resultsView:(ADResultsView *)v activate:(NSInteger)row { [self activateRow:row forceNewTab:NO]; }
+- (void)resultsView:(TweakResultsView *)v activate:(NSInteger)row { [self activateRow:row forceNewTab:NO]; }
 
 - (void)activateRow:(NSInteger)row forceNewTab:(BOOL)forceNewTab {
     NSWindow *w = self.host;
-    ADItem *it = row >= 0 && row < (NSInteger)self.results.items.count ? self.results.items[row] : nil;
+    TweakItem *it = row >= 0 && row < (NSInteger)self.results.items.count ? self.results.items[row] : nil;
     NSString *typedText = self.field.stringValue;
     [self close];
     if (!it) {
         // Nothing listed (e.g. ⌘L with the URL untouched): treat the field as an address/search.
         if (!typedText.length) return;
-        it = [ADItem new];
-        it.kind = ADItemURL;
-        it.url = ADResolveInput(typedText);
+        it = [TweakItem new];
+        it.kind = TweakItemURL;
+        it.url = TweakResolveInput(typedText);
     }
     switch (it.kind) {
-        case ADItemCommand: {
+        case TweakItemCommand: {
             NSMenuItem *m = it.menuItem;
             dispatch_async(dispatch_get_main_queue(), ^{ [NSApp sendAction:m.action to:m.target from:m]; });
             break;
         }
-        case ADItemTab:
-            ADFocusTab(it.windowId, it.tabId);
+        case TweakItemTab:
+            TweakFocusTab(it.windowId, it.tabId);
             break;
         default: {
             NSString *url = it.url;
             // The URL row reflects what's in the field, including an accepted completion.
-            if (it.kind == ADItemURL && ![typedText isEqualToString:it.title]) url = ADResolveInput(typedText);
+            if (it.kind == TweakItemURL && ![typedText isEqualToString:it.title]) url = TweakResolveInput(typedText);
             if (!url) return;
-            if (self.mode == ADCommandBarNewTab || forceNewTab) ADOpenInNewTab(w, url);
-            else ADNavigateWindow(w, url);
+            if (self.mode == TweakCommandBarNewTab || forceNewTab) TweakOpenInNewTab(w, url);
+            else TweakNavigateWindow(w, url);
         }
     }
 }
 
-- (NSImage *)iconForItem:(ADItem *)item {
-    if (item.kind == ADItemCommand || item.kind == ADItemPage || item.kind == ADItemSearch) return nil;
+- (NSImage *)iconForItem:(TweakItem *)item {
+    if (item.kind == TweakItemCommand || item.kind == TweakItemPage || item.kind == TweakItemSearch) return nil;
     return [self.sources faviconFor:item.url];
 }
 
@@ -439,8 +439,8 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
 
 #pragma mark - Public
 
-BOOL ADCommandBarShow(NSWindow *window, BOOL newTab) {
+BOOL TweakCommandBarShow(NSWindow *window, BOOL newTab) {
     if (!window || ![NSStringFromClass(window.class) isEqualToString:@"Window.PlatformWindow"]) return NO;
-    [[ADCommandBar shared] showInWindow:window mode:newTab ? ADCommandBarNewTab : ADCommandBarCurrentTab];
+    [[TweakCommandBar shared] showInWindow:window mode:newTab ? TweakCommandBarNewTab : TweakCommandBarCurrentTab];
     return YES;
 }

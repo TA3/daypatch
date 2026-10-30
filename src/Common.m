@@ -1,16 +1,16 @@
-#import "ADCommon.h"
+#import "Common.h"
 #import <objc/runtime.h>
 
-NSNotificationName const ADSettingsDidChangeNotification = @"ADSettingsDidChangeNotification";
-static NSString *const ADKeyMode = @"daypatch.urlBarMode";
-static NSString *const ADKeyLastMode = @"daypatch.lastHiddenMode";
-NSString *const ADKeyCommandBarStyle = @"daypatch.commandBarStyle";
-NSString *const ADKeyRevealOnHover = @"daypatch.revealOnHover";
-NSString *const ADKeyCmdLFocusesSidebar = @"daypatch.cmdLFocusesSidebar";
-NSString *const ADKeySidebarFullURL = @"daypatch.sidebarShowsFullURL";
-NSString *const ADKeySidebarNavButtons = @"daypatch.sidebarShowsNavButtons";
+NSNotificationName const TweakSettingsDidChangeNotification = @"TweakSettingsDidChangeNotification";
+static NSString *const TweakKeyMode = @"daypatch.urlBarMode";
+static NSString *const TweakKeyLastMode = @"daypatch.lastHiddenMode";
+NSString *const TweakKeyCommandBarStyle = @"daypatch.commandBarStyle";
+NSString *const TweakKeyRevealOnHover = @"daypatch.revealOnHover";
+NSString *const TweakKeyCmdLFocusesSidebar = @"daypatch.cmdLFocusesSidebar";
+NSString *const TweakKeySidebarFullURL = @"daypatch.sidebarShowsFullURL";
+NSString *const TweakKeySidebarNavButtons = @"daypatch.sidebarShowsNavButtons";
 
-@implementation ADSettings
+@implementation TweakSettings
 
 + (void)initialize {
     // One-time move from the project's previous name: copy "arcedDia.*" settings.
@@ -25,42 +25,42 @@ NSString *const ADKeySidebarNavButtons = @"daypatch.sidebarShowsNavButtons";
         [d setBool:YES forKey:@"daypatch.migrated"];
     }
     [NSUserDefaults.standardUserDefaults registerDefaults:@{
-        ADKeyMode: @(ADURLBarModeSidebar),
-        ADKeyLastMode: @(ADURLBarModeSidebar),
-        ADKeyRevealOnHover: @NO,
-        ADKeyCmdLFocusesSidebar: @YES,
-        ADKeySidebarFullURL: @NO,
-        ADKeySidebarNavButtons: @YES,
-        ADKeyHideAI: @YES,
+        TweakKeyMode: @(TweakURLBarModeSidebar),
+        TweakKeyLastMode: @(TweakURLBarModeSidebar),
+        TweakKeyRevealOnHover: @NO,
+        TweakKeyCmdLFocusesSidebar: @YES,
+        TweakKeySidebarFullURL: @NO,
+        TweakKeySidebarNavButtons: @YES,
+        TweakKeyHideAI: @YES,
         // Network blocking is opt-in; hiding AI UI only changes what's shown locally.
-        ADKeyBlockAI: @NO,
-        ADKeyBlockTelemetry: @NO,
-        ADKeyDisableOnDeviceAI: @YES,
-        ADKeyNoBackgroundNetworking: @NO,
-        ADKeyRendererLimit: @0,
-        ADKeyNewTabPalette: @YES,
-        ADKeyCommandBarStyle: @(ADCommandBarStyleNative),
+        TweakKeyBlockAI: @NO,
+        TweakKeyBlockTelemetry: @NO,
+        TweakKeyDisableOnDeviceAI: @YES,
+        TweakKeyNoBackgroundNetworking: @NO,
+        TweakKeyRendererLimit: @0,
+        TweakKeyNewTabPalette: @YES,
+        TweakKeyCommandBarStyle: @(TweakCommandBarStyleNative),
     }];
 }
 
 + (NSUserDefaults *)d { return NSUserDefaults.standardUserDefaults; }
-+ (void)changed { [NSNotificationCenter.defaultCenter postNotificationName:ADSettingsDidChangeNotification object:nil]; }
++ (void)changed { [NSNotificationCenter.defaultCenter postNotificationName:TweakSettingsDidChangeNotification object:nil]; }
 
-+ (ADURLBarMode)urlBarMode { return [self.d integerForKey:ADKeyMode]; }
-+ (void)setURLBarMode:(ADURLBarMode)mode {
-    [self.d setInteger:mode forKey:ADKeyMode];
-    if (mode != ADURLBarModeTop) [self.d setInteger:mode forKey:ADKeyLastMode];
++ (TweakURLBarMode)urlBarMode { return [self.d integerForKey:TweakKeyMode]; }
++ (void)setURLBarMode:(TweakURLBarMode)mode {
+    [self.d setInteger:mode forKey:TweakKeyMode];
+    if (mode != TweakURLBarModeTop) [self.d setInteger:mode forKey:TweakKeyLastMode];
     [self changed];
 }
 + (void)toggleHiding {
-    if (self.urlBarMode == ADURLBarModeTop) [self setURLBarMode:[self.d integerForKey:ADKeyLastMode] ?: ADURLBarModeSidebar];
-    else [self setURLBarMode:ADURLBarModeTop];
+    if (self.urlBarMode == TweakURLBarModeTop) [self setURLBarMode:[self.d integerForKey:TweakKeyLastMode] ?: TweakURLBarModeSidebar];
+    else [self setURLBarMode:TweakURLBarModeTop];
 }
 
-+ (BOOL)revealOnHover { return [self.d boolForKey:ADKeyRevealOnHover]; }
-+ (BOOL)cmdLFocusesSidebar { return [self.d boolForKey:ADKeyCmdLFocusesSidebar]; }
-+ (BOOL)sidebarShowsFullURL { return [self.d boolForKey:ADKeySidebarFullURL]; }
-+ (BOOL)sidebarShowsNavButtons { return [self.d boolForKey:ADKeySidebarNavButtons]; }
++ (BOOL)revealOnHover { return [self.d boolForKey:TweakKeyRevealOnHover]; }
++ (BOOL)cmdLFocusesSidebar { return [self.d boolForKey:TweakKeyCmdLFocusesSidebar]; }
++ (BOOL)sidebarShowsFullURL { return [self.d boolForKey:TweakKeySidebarFullURL]; }
++ (BOOL)sidebarShowsNavButtons { return [self.d boolForKey:TweakKeySidebarNavButtons]; }
 
 + (BOOL)boolForKey:(NSString *)key { return [self.d boolForKey:key]; }
 + (void)setBool:(BOOL)value forKey:(NSString *)key { [self.d setBool:value forKey:key]; [self changed]; }
@@ -70,22 +70,22 @@ NSString *const ADKeySidebarNavButtons = @"daypatch.sidebarShowsNavButtons";
 
 #pragma mark - Runtime helpers
 
-NSView *ADChildOfClass(NSView *parent, NSString *className) {
+NSView *TweakChildOfClass(NSView *parent, NSString *className) {
     for (NSView *s in parent.subviews)
         if ([NSStringFromClass(s.class) isEqualToString:className]) return s;
     return nil;
 }
 
-NSView *ADDescendantOfClass(NSView *root, NSString *className) {
+NSView *TweakDescendantOfClass(NSView *root, NSString *className) {
     if ([NSStringFromClass(root.class) isEqualToString:className]) return root;
     for (NSView *s in root.subviews) {
-        NSView *hit = ADDescendantOfClass(s, className);
+        NSView *hit = TweakDescendantOfClass(s, className);
         if (hit) return hit;
     }
     return nil;
 }
 
-Class ADFindClass(NSString *prefix, NSString *suffix) {
+Class TweakFindClass(NSString *prefix, NSString *suffix) {
     // Exact name first; private Swift classes carry a per-build hash, so fall back to a scan.
     if (!suffix.length) return NSClassFromString(prefix);
     unsigned n = 0;
@@ -101,7 +101,7 @@ Class ADFindClass(NSString *prefix, NSString *suffix) {
     return found;
 }
 
-IMP ADHook(Class cls, SEL sel, IMP imp) {
+IMP TweakHook(Class cls, SEL sel, IMP imp) {
     Method m = class_getInstanceMethod(cls, sel);
     if (!m) return NULL;
     if (class_addMethod(cls, sel, imp, method_getTypeEncoding(m))) return method_getImplementation(m);
@@ -110,7 +110,7 @@ IMP ADHook(Class cls, SEL sel, IMP imp) {
 
 #pragma mark - Scripting bridge
 
-id ADActiveTabForWindow(NSWindow *window) {
+id TweakActiveTabForWindow(NSWindow *window) {
     NSString *wid = window.identifier;
     if (!wid) return nil;
     @try {
@@ -120,14 +120,14 @@ id ADActiveTabForWindow(NSWindow *window) {
     return nil;
 }
 
-NSString *ADURLForWindow(NSWindow *window) {
+NSString *TweakURLForWindow(NSWindow *window) {
     @try {
-        id u = [ADActiveTabForWindow(window) valueForKey:@"URL"];
+        id u = [TweakActiveTabForWindow(window) valueForKey:@"URL"];
         return [u isKindOfClass:NSString.class] ? u : nil;
     } @catch (__unused NSException *e) { return nil; }
 }
 
-NSString *ADResolveInput(NSString *input) {
+NSString *TweakResolveInput(NSString *input) {
     NSString *s = [input stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
     if (!s.length) return nil;
     NSRegularExpression *scheme = [NSRegularExpression regularExpressionWithPattern:@"^[a-zA-Z][a-zA-Z0-9+.-]*:(//)?[^\\s]*$" options:0 error:nil];
@@ -145,9 +145,9 @@ NSString *ADResolveInput(NSString *input) {
     return [NSString stringWithFormat:template, [s stringByAddingPercentEncodingWithAllowedCharacters:allowed]];
 }
 
-void ADNavigateWindow(NSWindow *window, NSString *input) {
-    NSString *url = ADResolveInput(input);
-    id tab = ADActiveTabForWindow(window);
+void TweakNavigateWindow(NSWindow *window, NSString *input) {
+    NSString *url = TweakResolveInput(input);
+    id tab = TweakActiveTabForWindow(window);
     if (!url || !tab) return;
     @try { [tab setValue:url forKey:@"URL"]; }
     @catch (NSException *e) { NSLog(@"[daypatch] navigate failed: %@", e); }
@@ -164,20 +164,20 @@ static NSString *scriptString(NSString *s) {
 }
 
 // Dia's scripting interface, called in-process (AppleEvents to self need no permission).
-void ADOpenInNewTab(NSWindow *window, NSString *url) {
+void TweakOpenInNewTab(NSWindow *window, NSString *url) {
     if (!window.identifier || !url.length) return;
     runScript([NSString stringWithFormat:@"tell application id \"company.thebrowser.dia\"\n"
                "  tell (first window whose id is \"%@\") to make new tab with properties {URL:\"%@\"}\n"
                "end tell", scriptString(window.identifier), scriptString(url)]);
 }
 
-void ADFocusTab(NSString *windowId, NSString *tabId) {
+void TweakFocusTab(NSString *windowId, NSString *tabId) {
     if (!windowId || !tabId) return;
     runScript([NSString stringWithFormat:@"tell application id \"company.thebrowser.dia\"\n"
                "  focus (first tab of (first window whose id is \"%@\") whose id is \"%@\")\n"
                "end tell", scriptString(windowId), scriptString(tabId)]);
 }
 
-ADCommandBarStyle ADCommandBarCurrentStyle(void) {
-    return [NSUserDefaults.standardUserDefaults integerForKey:ADKeyCommandBarStyle];
+TweakCommandBarStyle TweakCommandBarCurrentStyle(void) {
+    return [NSUserDefaults.standardUserDefaults integerForKey:TweakKeyCommandBarStyle];
 }

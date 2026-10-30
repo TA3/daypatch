@@ -1,11 +1,11 @@
 // Performance: turns off Dia's on-device AI service and exposes a few Chromium
 // switches. Chromium switches are read once at launch.
-#import "ADCommon.h"
+#import "Common.h"
 #import <objc/runtime.h>
 
-NSString *const ADKeyDisableOnDeviceAI = @"daypatch.disableOnDeviceAI";
-NSString *const ADKeyNoBackgroundNetworking = @"daypatch.noBackgroundNetworking";
-NSString *const ADKeyRendererLimit = @"daypatch.rendererProcessLimit";   // 0 = Chromium default
+NSString *const TweakKeyDisableOnDeviceAI = @"daypatch.disableOnDeviceAI";
+NSString *const TweakKeyNoBackgroundNetworking = @"daypatch.noBackgroundNetworking";
+NSString *const TweakKeyRendererLimit = @"daypatch.rendererProcessLimit";   // 0 = Chromium default
 
 #pragma mark - On-device AI
 
@@ -13,7 +13,7 @@ NSString *const ADKeyRendererLimit = @"daypatch.rendererProcessLimit";   // 0 = 
 // only remaining use is classifying every string typed into the URL editor, so
 // never start it.
 static BOOL onDeviceAIOff(void) {
-    return [ADSettings boolForKey:ADKeyHideAI] && [ADSettings boolForKey:ADKeyDisableOnDeviceAI];
+    return [TweakSettings boolForKey:TweakKeyHideAI] && [TweakSettings boolForKey:TweakKeyDisableOnDeviceAI];
 }
 
 static void (*origAIInitialize)(id, SEL, id, id);
@@ -29,19 +29,19 @@ static BOOL hookedAIIsAvailable(id self, SEL _cmd) {
 
 #pragma mark - Chromium switches
 
-NSArray<NSString *> *ADPerformanceSwitches(void) {
+NSArray<NSString *> *TweakPerformanceSwitches(void) {
     NSMutableArray *s = [NSMutableArray array];
-    if ([ADSettings boolForKey:ADKeyNoBackgroundNetworking]) [s addObject:@"--disable-background-networking"];
-    NSInteger limit = [NSUserDefaults.standardUserDefaults integerForKey:ADKeyRendererLimit];
+    if ([TweakSettings boolForKey:TweakKeyNoBackgroundNetworking]) [s addObject:@"--disable-background-networking"];
+    NSInteger limit = [NSUserDefaults.standardUserDefaults integerForKey:TweakKeyRendererLimit];
     if (limit > 0) [s addObject:[NSString stringWithFormat:@"--renderer-process-limit=%ld", (long)limit]];
     return s;
 }
 
-void ADPerformanceInstall(void) {
+void TweakPerformanceInstall(void) {
     Class ai = NSClassFromString(@"ArcAIService");
     if (ai) {
-        origAIInitialize = (void *)ADHook(ai, @selector(initialize:callback:), (IMP)hookedAIInitialize);
-        origAIIsAvailable = (void *)ADHook(ai, @selector(isAvailable), (IMP)hookedAIIsAvailable);
+        origAIInitialize = (void *)TweakHook(ai, @selector(initialize:callback:), (IMP)hookedAIInitialize);
+        origAIIsAvailable = (void *)TweakHook(ai, @selector(isAvailable), (IMP)hookedAIIsAvailable);
     } else {
         NSLog(@"[daypatch] ArcAIService not found; on-device AI switch inactive");
     }

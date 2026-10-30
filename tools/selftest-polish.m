@@ -13,7 +13,7 @@ static void snap(NSWindow *w, NSString *p) {
 }
 static NSString *titlebarState(NSWindow *w) {
     // Where the DayPatch pane's scroll area starts vs. where the title bar ends (window coords).
-    NSView *sv = find(find(w.contentView, @"ADPrefsPane"), @"NSScrollView");
+    NSView *sv = find(find(w.contentView, @"TweakPrefsPane"), @"NSScrollView");
     if (sv) return [NSString stringWithFormat:@"scroll top=%.0f titlebar bottom=%.0f", NSMaxY([sv convertRect:sv.bounds toView:nil]), NSMaxY(w.contentLayoutRect)];
     NSMutableArray *states = [NSMutableArray array];
     NSMutableArray *q = [NSMutableArray arrayWithObject:w.contentView.superview];
@@ -34,7 +34,7 @@ __attribute__((constructor)) static void init(void) {
             NSTableView *t = (NSTableView *)find(p.contentView, @"NSTableView");
             [t selectRowIndexes:[NSIndexSet indexSetWithIndex:t.numberOfRows - 1] byExtendingSelection:NO];
             after(1, ^{
-                NSScrollView *sv = (NSScrollView *)find(find(p.contentView, @"ADPrefsPane"), @"NSScrollView");
+                NSScrollView *sv = (NSScrollView *)find(find(p.contentView, @"TweakPrefsPane"), @"NSScrollView");
                 [out appendFormat:@"top:      %@\n", titlebarState(p)];
                 snap(p, @"/tmp/daypatch-polish-top.png");
                 [sv.contentView scrollToPoint:NSMakePoint(0, 220)]; [sv reflectScrolledClipView:sv.contentView];
@@ -54,9 +54,9 @@ __attribute__((constructor)) static void init(void) {
                                 NSWindow *w = nil;
                                 for (NSWindow *x in NSApp.windows) if ([NSStringFromClass(x.class) isEqualToString:@"Window.PlatformWindow"] && x.isVisible) w = x;
                                 [NSApp activateIgnoringOtherApps:YES]; [w makeKeyAndOrderFront:nil];
-                                ((BOOL (*)(NSWindow *, BOOL))dlsym(RTLD_DEFAULT, "ADCommandBarShow"))(w, YES);
+                                ((BOOL (*)(NSWindow *, BOOL))dlsym(RTLD_DEFAULT, "TweakCommandBarShow"))(w, YES);
                                 after(0.8, ^{
-                                    id bar = [NSClassFromString(@"ADCommandBar") performSelector:@selector(shared)];
+                                    id bar = [NSClassFromString(@"TweakCommandBar") performSelector:@selector(shared)];
                                     NSTextView *ed = (NSTextView *)[[bar valueForKey:@"field"] currentEditor];
                                     [ed insertText:@"g"];
                                     after(1.5, ^{

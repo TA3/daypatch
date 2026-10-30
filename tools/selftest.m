@@ -35,12 +35,12 @@ __attribute__((constructor)) static void init(void) {
         NSWindow *w = windowOfClass(@"Window.PlatformWindow");
         [NSApp activateIgnoringOtherApps:YES];
         [w makeKeyAndOrderFront:nil];
-        void (*navigate)(NSWindow *, NSString *) = dlsym(RTLD_DEFAULT, "ADNavigateWindow");
-        NSUInteger (*blocked)(void) = dlsym(RTLD_DEFAULT, "ADBlockedRequestCount");
-        BOOL (*openEditor)(NSWindow *) = dlsym(RTLD_DEFAULT, "ADSidebarFocusURLBar");
+        void (*navigate)(NSWindow *, NSString *) = dlsym(RTLD_DEFAULT, "TweakNavigateWindow");
+        NSUInteger (*blocked)(void) = dlsym(RTLD_DEFAULT, "TweakBlockedRequestCount");
+        BOOL (*openEditor)(NSWindow *) = dlsym(RTLD_DEFAULT, "TweakSidebarFocusURLBar");
         navigate(w, @"https://example.com");
         after(3, ^{
-            NSView *pill = find(w.contentView.superview, @"ADSidebarURLBar");
+            NSView *pill = find(w.contentView.superview, @"TweakSidebarURLBar");
             NSView *nav = find(w.contentView.superview, @"NavigationBar.NavigationBarView");
             [out appendFormat:@"pill=%@ navbar hidden=%d\n", pill ? @"yes" : @"no", nav.hidden];
             [out appendFormat:@"menu Focus Chat hidden: "];

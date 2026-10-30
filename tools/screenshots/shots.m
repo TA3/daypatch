@@ -5,7 +5,7 @@
 //   clang -fobjc-arc -framework AppKit -framework QuartzCore -lsqlite3 \
 //     tools/screenshots/shots.m $(ls src/*.m | grep -v DayPatch.m) -o build/shots && build/shots build/shots-out
 #import <AppKit/AppKit.h>
-#import "../../src/ADCommandSources.h"
+#import "../../src/CommandSources.h"
 
 static NSImage *letterIcon(NSString *letter, NSColor *color) {
     return [NSImage imageWithSize:NSMakeSize(20, 20) flipped:NO drawingHandler:^BOOL(NSRect r) {
@@ -22,12 +22,12 @@ static NSImage *letterIcon(NSString *letter, NSColor *color) {
 @property (nonatomic, strong) NSDictionary<NSString *, NSImage *> *icons;
 @end
 @implementation DemoDelegate
-- (NSImage *)iconForItem:(ADItem *)item { return item.url ? self.icons[item.url] : nil; }
+- (NSImage *)iconForItem:(TweakItem *)item { return item.url ? self.icons[item.url] : nil; }
 - (void)resultsView:(id)v activate:(NSInteger)row {}
 @end
 
-static ADItem *item(ADItemKind kind, NSString *title, NSString *detail, NSString *url, NSString *symbol) {
-    ADItem *i = [ADItem new];
+static TweakItem *item(TweakItemKind kind, NSString *title, NSString *detail, NSString *url, NSString *symbol) {
+    TweakItem *i = [TweakItem new];
     i.kind = kind; i.title = title; i.detail = detail; i.url = url; i.symbol = symbol;
     return i;
 }
@@ -55,12 +55,12 @@ static void writePNG(NSView *v, NSString *path) {
 
 static void commandBar(NSString *dir) {
     NSArray *items = @[
-        item(ADItemCommand, @"Settings", @"⌘,", nil, @"gearshape"),
-        item(ADItemSearch, @"set", @"Search Google", @"https://www.google.com/search?q=set", @"magnifyingglass"),
-        item(ADItemTab, @"Settings · Project board", @"Switch to Tab", @"https://board.example.com/settings", @"square.on.square"),
-        item(ADItemHistory, @"Account settings", nil, @"https://example.com/account/settings", @"globe"),
-        item(ADItemPage, @"Site Settings", nil, @"chrome://settings/content", @"slider.horizontal.3"),
-        item(ADItemHistory, @"Settings reference", nil, @"https://docs.example.org/reference/settings", @"globe"),
+        item(TweakItemCommand, @"Settings", @"⌘,", nil, @"gearshape"),
+        item(TweakItemSearch, @"set", @"Search Google", @"https://www.google.com/search?q=set", @"magnifyingglass"),
+        item(TweakItemTab, @"Settings · Project board", @"Switch to Tab", @"https://board.example.com/settings", @"square.on.square"),
+        item(TweakItemHistory, @"Account settings", nil, @"https://example.com/account/settings", @"globe"),
+        item(TweakItemPage, @"Site Settings", nil, @"chrome://settings/content", @"slider.horizontal.3"),
+        item(TweakItemHistory, @"Settings reference", nil, @"https://docs.example.org/reference/settings", @"globe"),
     ];
     DemoDelegate *del = [DemoDelegate new];
     del.icons = @{
@@ -93,7 +93,7 @@ static void commandBar(NSString *dir) {
     divider.boxType = NSBoxSeparator;
     [bar addSubview:divider];
 
-    NSView *results = [[NSClassFromString(@"ADResultsView") alloc] initWithFrame:NSMakeRect(0, input + 1, width, rows)];
+    NSView *results = [[NSClassFromString(@"TweakResultsView") alloc] initWithFrame:NSMakeRect(0, input + 1, width, rows)];
     [results setValue:del forKey:@"delegate"];
     [results setValue:items forKey:@"items"];
     [bar addSubview:results];
@@ -102,7 +102,7 @@ static void commandBar(NSString *dir) {
 }
 
 static void settings(NSString *dir) {
-    NSView *pane = [[NSClassFromString(@"ADPrefsPane") alloc] initWithFrame:NSMakeRect(0, 0, 600, 1080)];
+    NSView *pane = [[NSClassFromString(@"TweakPrefsPane") alloc] initWithFrame:NSMakeRect(0, 0, 600, 1080)];
     pane.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
     NSView *bg = [[NSView alloc] initWithFrame:pane.frame];
     bg.wantsLayer = YES;

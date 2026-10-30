@@ -37,9 +37,9 @@ __attribute__((constructor)) static void init(void) {
         for (NSWindow *x in NSApp.windows) if ([NSStringFromClass(x.class) isEqualToString:@"Window.PlatformWindow"] && x.isVisible) w = x;
         [NSApp activateIgnoringOtherApps:YES];
         [w makeKeyAndOrderFront:nil];
-        BOOL (*palette)(NSWindow *) = dlsym(RTLD_DEFAULT, "ADPaletteOpen");
-        void (*navigate)(NSWindow *, NSString *) = dlsym(RTLD_DEFAULT, "ADNavigateWindow");
-        NSString *(*urlFor)(NSWindow *) = dlsym(RTLD_DEFAULT, "ADURLForWindow");
+        BOOL (*palette)(NSWindow *) = dlsym(RTLD_DEFAULT, "TweakPaletteOpen");
+        void (*navigate)(NSWindow *, NSString *) = dlsym(RTLD_DEFAULT, "TweakNavigateWindow");
+        NSString *(*urlFor)(NSWindow *) = dlsym(RTLD_DEFAULT, "TweakURLForWindow");
         navigate(w, @"https://example.com/start");
         after(3, ^{
             NSUInteger tabs0 = tabURLs(w).count;

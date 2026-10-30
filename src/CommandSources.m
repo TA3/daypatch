@@ -1,8 +1,8 @@
-#import "ADCommandSources.h"
-#import "ADCommon.h"
+#import "CommandSources.h"
+#import "Common.h"
 #include <sqlite3.h>
 
-@implementation ADItem
+@implementation TweakItem
 @end
 
 static NSString *profileDir(void) {
@@ -45,7 +45,7 @@ static BOOL looksLikeURL(NSString *s) {
     return dot.location != NSNotFound && dot.location > 0 && host.length - dot.location - 1 >= 2;
 }
 
-NSString *ADShortcutString(NSMenuItem *item) {
+NSString *TweakShortcutString(NSMenuItem *item) {
     if (!item.keyEquivalent.length) return @"";
     NSMutableString *s = [NSMutableString string];
     NSEventModifierFlags m = item.keyEquivalentModifierMask;
@@ -65,11 +65,11 @@ NSString *ADShortcutString(NSMenuItem *item) {
 
 #pragma mark - Sources
 
-@implementation ADCommandSources {
-    NSArray<ADItem *> *_commands;
-    NSArray<ADItem *> *_pages;
-    NSArray<ADItem *> *_tabs;
-    NSArray<ADItem *> *_bookmarks;
+@implementation TweakCommandSources {
+    NSArray<TweakItem *> *_commands;
+    NSArray<TweakItem *> *_pages;
+    NSArray<TweakItem *> *_tabs;
+    NSArray<TweakItem *> *_bookmarks;
     NSString *_searchTemplate;
     NSString *_activeURL;
     dispatch_queue_t _queue;
@@ -91,11 +91,11 @@ NSString *ADShortcutString(NSMenuItem *item) {
     _tabs = [self loadTabs];
     if (!_bookmarks) _bookmarks = [self loadBookmarks];
     if (!_searchTemplate) _searchTemplate = [self loadSearchTemplate];
-    _activeURL = ADURLForWindow(window);
+    _activeURL = TweakURLForWindow(window);
 }
 
 // Every enabled, visible command in Dia's menus, including submenus.
-- (NSArray<ADItem *> *)loadCommands {
+- (NSArray<TweakItem *> *)loadCommands {
     NSMutableArray *out = [NSMutableArray array];
     NSMutableSet *seen = [NSMutableSet set];
     NSSet *skipMenus = [NSSet setWithArray:@[@"Services", @"Open Recent", @"Help"]];
@@ -116,10 +116,10 @@ NSString *ADShortcutString(NSMenuItem *item) {
             if (![topTitles containsObject:path]) title = [NSString stringWithFormat:@"%@ › %@", path, title];
             if ([seen containsObject:title]) continue;
             [seen addObject:title];
-            ADItem *it = [ADItem new];
-            it.kind = ADItemCommand;
+            TweakItem *it = [TweakItem new];
+            it.kind = TweakItemCommand;
             it.title = title;
-            it.detail = ADShortcutString(i);
+            it.detail = TweakShortcutString(i);
             it.menuItem = i;
             it.symbol = [self symbolForCommand:title];
             [out addObject:it];
@@ -142,7 +142,7 @@ NSString *ADShortcutString(NSMenuItem *item) {
     return @"command";
 }
 
-- (NSArray<ADItem *> *)loadPages {
+- (NSArray<TweakItem *> *)loadPages {
     NSArray *pages = @[
         @[@"Chrome Flags", @"chrome://flags", @"flag"],
         @[@"Extensions", @"chrome://extensions", @"puzzlepiece.extension"],
@@ -164,8 +164,8 @@ NSString *ADShortcutString(NSMenuItem *item) {
     ];
     NSMutableArray *out = [NSMutableArray array];
     for (NSArray *p in pages) {
-        ADItem *it = [ADItem new];
-        it.kind = ADItemPage;
+        TweakItem *it = [TweakItem new];
+        it.kind = TweakItemPage;
         it.title = p[0];
         it.url = p[1];
         it.detail = p[1];
@@ -175,7 +175,7 @@ NSString *ADShortcutString(NSMenuItem *item) {
     return out;
 }
 
-- (NSArray<ADItem *> *)loadTabs {
+- (NSArray<TweakItem *> *)loadTabs {
     NSMutableArray *out = [NSMutableArray array];
     @try {
         for (id sw in [NSApp valueForKey:@"appleScriptWindows"]) {
@@ -183,8 +183,8 @@ NSString *ADShortcutString(NSMenuItem *item) {
             for (id tab in [sw valueForKey:@"appleScriptTabs"]) {
                 NSString *url = [tab valueForKey:@"URL"];
                 if (![url isKindOfClass:NSString.class] || !url.length || [url hasPrefix:@"dia://"]) continue;
-                ADItem *it = [ADItem new];
-                it.kind = ADItemTab;
+                TweakItem *it = [TweakItem new];
+                it.kind = TweakItemTab;
                 it.title = [tab valueForKey:@"title"] ?: url;
                 it.url = url;
                 it.detail = @"Switch to Tab";
@@ -199,7 +199,7 @@ NSString *ADShortcutString(NSMenuItem *item) {
     return out;
 }
 
-- (NSArray<ADItem *> *)loadBookmarks {
+- (NSArray<TweakItem *> *)loadBookmarks {
     NSData *data = [NSData dataWithContentsOfFile:[profileDir() stringByAppendingPathComponent:@"Bookmarks"]];
     NSDictionary *json = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
     NSMutableArray *out = [NSMutableArray array];
@@ -207,8 +207,8 @@ NSString *ADShortcutString(NSMenuItem *item) {
     void (^__block __weak weakWalk)(NSDictionary *);
     weakWalk = walk = ^(NSDictionary *node) {
         if ([node[@"type"] isEqual:@"url"] && [node[@"url"] isKindOfClass:NSString.class]) {
-            ADItem *it = [ADItem new];
-            it.kind = ADItemBookmark;
+            TweakItem *it = [TweakItem new];
+            it.kind = TweakItemBookmark;
             it.title = node[@"name"];
             it.url = node[@"url"];
             it.detail = node[@"url"];
@@ -281,7 +281,7 @@ static NSString *likeEscape(NSString *s) {
             stringByReplacingOccurrencesOfString:@"_" withString:@"\\_"];
 }
 
-- (NSArray<ADItem *> *)historyFor:(NSArray<NSString *> *)words {
+- (NSArray<TweakItem *> *)historyFor:(NSArray<NSString *> *)words {
     if (!words.count) return @[];
     // Every word must appear in the URL or title; rank by typed count, visits, recency.
     NSMutableString *where = [NSMutableString stringWithString:@"hidden = 0"];
@@ -296,8 +296,8 @@ static NSString *likeEscape(NSString *s) {
     // Chromium time: microseconds since 1601-01-01.
     double nowChrome = (NSDate.date.timeIntervalSince1970 + 11644473600.0) * 1e6;
     [self sqlite:@"History" query:sql bind:args row:^(sqlite3_stmt *s) {
-        ADItem *it = [ADItem new];
-        it.kind = ADItemHistory;
+        TweakItem *it = [TweakItem new];
+        it.kind = TweakItemHistory;
         it.url = @((const char *)sqlite3_column_text(s, 0) ?: "");
         NSString *title = @((const char *)sqlite3_column_text(s, 1) ?: "");
         it.title = title.length ? title : it.url;
@@ -315,7 +315,7 @@ static NSString *likeEscape(NSString *s) {
 
 #pragma mark - Query
 
-- (void)query:(NSString *)text done:(void (^)(NSArray<ADItem *> *))done {
+- (void)query:(NSString *)text done:(void (^)(NSArray<TweakItem *> *))done {
     NSString *q = [text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet].lowercaseString;
     NSUInteger gen = ++_generation;
     if (!q.length) {
@@ -329,17 +329,17 @@ static NSString *likeEscape(NSString *s) {
     NSArray *commands = _commands, *pages = _pages, *tabs = _tabs, *bookmarks = _bookmarks;
     NSString *activeURL = _activeURL;
     dispatch_async(_queue, ^{
-        NSMutableArray<ADItem *> *all = [NSMutableArray array];
+        NSMutableArray<TweakItem *> *all = [NSMutableArray array];
         // Ranking: a command, page or tab that matches by prefix beats history (as in
         // Arc); history is ordered by match plus frecency.
-        void (^add)(NSArray<ADItem *> *, double, double, double) = ^(NSArray<ADItem *> *list, double minMatch, double weight, double prefixBonus) {
-            for (ADItem *it in list) {
-                double m = matchScore(words, it.title, it.kind == ADItemCommand ? nil : it.url);
+        void (^add)(NSArray<TweakItem *> *, double, double, double) = ^(NSArray<TweakItem *> *list, double minMatch, double weight, double prefixBonus) {
+            for (TweakItem *it in list) {
+                double m = matchScore(words, it.title, it.kind == TweakItemCommand ? nil : it.url);
                 if (m < minMatch) continue;
                 // Commands and pages win when you've clearly started typing their name
                 // (3+ letters, "set" -> Settings); for "g" or "go" your most visited sites lead.
                 double coverage = MIN(1.0, 2.0 * q.length / MAX((NSUInteger)1, it.title.length));
-                BOOL named = m >= 4 * words.count && (it.kind == ADItemTab || q.length >= 3);
+                BOOL named = m >= 4 * words.count && (it.kind == TweakItemTab || q.length >= 3);
                 it.score = m * weight + it.frecency + (named ? prefixBonus * coverage : 0);
                 [all addObject:it];
             }
@@ -348,28 +348,28 @@ static NSString *likeEscape(NSString *s) {
         add(pages, 2.5, 1.2, 14.0);
         add(tabs, 0.8, 1.25, 2.5);
         add(bookmarks, 1.0, 1.1, 1.0);
-        NSArray<ADItem *> *history = [self historyFor:words];
+        NSArray<TweakItem *> *history = [self historyFor:words];
         add(history, 0.8, 1.0, 0);
 
         // A site that's open in a tab is offered as "Switch to Tab", with its history weight.
-        NSMutableDictionary<NSString *, ADItem *> *historyByURL = [NSMutableDictionary dictionary];
-        for (ADItem *h in history) if (h.url) historyByURL[h.url] = h;
-        for (ADItem *t in all)
-            if (t.kind == ADItemTab && historyByURL[t.url]) t.score = MAX(t.score, historyByURL[t.url].score + 0.5);
+        NSMutableDictionary<NSString *, TweakItem *> *historyByURL = [NSMutableDictionary dictionary];
+        for (TweakItem *h in history) if (h.url) historyByURL[h.url] = h;
+        for (TweakItem *t in all)
+            if (t.kind == TweakItemTab && historyByURL[t.url]) t.score = MAX(t.score, historyByURL[t.url].score + 0.5);
 
         // De-duplicate URLs: an open tab beats a bookmark beats history.
-        [all sortUsingComparator:^NSComparisonResult(ADItem *a, ADItem *b) { return a.score > b.score ? NSOrderedAscending : a.score < b.score ? NSOrderedDescending : NSOrderedSame; }];
-        NSMutableArray<ADItem *> *ranked = [NSMutableArray array];
+        [all sortUsingComparator:^NSComparisonResult(TweakItem *a, TweakItem *b) { return a.score > b.score ? NSOrderedAscending : a.score < b.score ? NSOrderedDescending : NSOrderedSame; }];
+        NSMutableArray<TweakItem *> *ranked = [NSMutableArray array];
         NSMutableSet *urls = [NSMutableSet set];
         NSCountedSet *perSite = [NSCountedSet set], *perTitle = [NSCountedSet set];
-        for (ADItem *it in all) {
+        for (TweakItem *it in all) {
             NSString *key = it.url ? [it.url stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"/"]] : it.title;
-            if (it.kind == ADItemTab && [it.url isEqualToString:activeURL]) continue;  // already here
+            if (it.kind == TweakItemTab && [it.url isEqualToString:activeURL]) continue;  // already here
             if ([urls containsObject:key]) continue;
             // At most two history rows per site, so one site can't fill the list.
             NSString *site = [NSURL URLWithString:it.url].host;
-            if (it.kind == ADItemHistory && site && [perSite countForObject:site] >= 2) continue;
-            if (it.kind == ADItemHistory && it.title && [perTitle countForObject:it.title] >= 2) continue;
+            if (it.kind == TweakItemHistory && site && [perSite countForObject:site] >= 2) continue;
+            if (it.kind == TweakItemHistory && it.title && [perTitle countForObject:it.title] >= 2) continue;
             if (site) [perSite addObject:site];
             if (it.title) [perTitle addObject:it.title];
             [urls addObject:key];
@@ -377,21 +377,21 @@ static NSString *likeEscape(NSString *s) {
         }
 
         // What was typed: as an address, or a search. Second place unless nothing else is strong.
-        ADItem *typed = [ADItem new];
+        TweakItem *typed = [TweakItem new];
         if (looksLikeURL(q)) {
-            typed.kind = ADItemURL;
-            typed.url = ADResolveInput(text);
+            typed.kind = TweakItemURL;
+            typed.url = TweakResolveInput(text);
             typed.title = text;
             typed.detail = @"Open";
             typed.symbol = @"globe";
         } else {
-            typed.kind = ADItemSearch;
+            typed.kind = TweakItemSearch;
             typed.title = text;
             typed.url = [self searchURLFor:text];
             typed.detail = [@"Search " stringByAppendingString:[self searchEngineName]];
             typed.symbol = @"magnifyingglass";
         }
-        BOOL strongTop = ranked.count && ((ADItem *)ranked[0]).score >= 5;
+        BOOL strongTop = ranked.count && ((TweakItem *)ranked[0]).score >= 5;
         [ranked insertObject:typed atIndex:strongTop ? 1 : 0];
 
         NSArray *items = [ranked subarrayWithRange:NSMakeRange(0, MIN((NSUInteger)8, ranked.count))];
@@ -399,11 +399,11 @@ static NSString *likeEscape(NSString *s) {
     });
 }
 
-- (NSString *)completionFor:(NSString *)text inItems:(NSArray<ADItem *> *)items {
+- (NSString *)completionFor:(NSString *)text inItems:(NSArray<TweakItem *> *)items {
     NSString *q = text.lowercaseString;
     if (!q.length || [q rangeOfCharacterFromSet:NSCharacterSet.whitespaceCharacterSet].location != NSNotFound) return nil;
-    for (ADItem *it in items) {
-        if (it.kind != ADItemHistory && it.kind != ADItemTab && it.kind != ADItemBookmark) continue;
+    for (TweakItem *it in items) {
+        if (it.kind != TweakItemHistory && it.kind != TweakItemTab && it.kind != TweakItemBookmark) continue;
         NSString *host = [NSURL URLWithString:it.url].host.lowercaseString;
         if ([host hasPrefix:@"www."]) host = [host substringFromIndex:4];
         if (host.length > q.length && [host hasPrefix:q]) return host;

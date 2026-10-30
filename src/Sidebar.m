@@ -2,7 +2,7 @@
 // reload buttons in the header row next to the traffic lights. Clicking the pill
 // (or ⌘L) opens Dia's own URL editor (autocomplete, history, tabs, search)
 // anchored over the pill instead of the top bar.
-#import "ADCommon.h"
+#import "Common.h"
 #import <objc/runtime.h>
 
 static NSString *const kHeaderClass = @"TabSidebar.SidebarHeaderView";
@@ -25,7 +25,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 
 #pragma mark - URL pill
 
-@interface ADSidebarURLBar : NSView
+@interface TweakSidebarURLBar : NSView
 @property (nonatomic, strong) NSView *pill;
 @property (nonatomic, strong) NSImageView *icon;
 @property (nonatomic, strong) NSTextField *label;
@@ -33,7 +33,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 @property (nonatomic) BOOL hovering;
 @end
 
-@implementation ADSidebarURLBar
+@implementation TweakSidebarURLBar
 
 - (instancetype)initWithFrame:(NSRect)frame {
     if (!(self = [super initWithFrame:frame])) return nil;
@@ -90,13 +90,13 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 }
 
 - (void)refresh {
-    NSString *u = ADURLForWindow(self.window);
+    NSString *u = TweakURLForWindow(self.window);
     if ([u isEqualToString:self.currentURL] && self.label.stringValue.length) return;
     self.currentURL = u;
     NSString *text = @"";
     if (u.length && ![u isEqualToString:@"about:blank"]) {
         NSString *host = [NSURL URLWithString:u].host;
-        if (ADSettings.sidebarShowsFullURL || !host.length) text = u;
+        if (TweakSettings.sidebarShowsFullURL || !host.length) text = u;
         else text = [host hasPrefix:@"www."] ? [host substringFromIndex:4] : host;
     }
     self.label.stringValue = text;
@@ -107,19 +107,19 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 - (void)forceRefresh { self.currentURL = nil; self.label.stringValue = @""; [self refresh]; }
 
 - (BOOL)openEditor {
-    if (ADCommandBarCurrentStyle() == ADCommandBarStyleNative) return ADCommandBarShow(self.window, NO);
+    if (TweakCommandBarCurrentStyle() == TweakCommandBarStyleNative) return TweakCommandBarShow(self.window, NO);
     NSRect anchor = [self.pill convertRect:self.pill.bounds toView:nil];
-    return ADNavBarOpenEditor(self.window, anchor);
+    return TweakNavBarOpenEditor(self.window, anchor);
 }
 
 @end
 
 #pragma mark - Nav buttons
 
-@interface ADNavButtons : NSView
+@interface TweakNavButtons : NSView
 @end
 
-@implementation ADNavButtons
+@implementation TweakNavButtons
 
 - (instancetype)initWithFrame:(NSRect)frame {
     if (!(self = [super initWithFrame:frame])) return nil;
@@ -144,19 +144,19 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     for (NSView *b in self.subviews) { b.frame = NSMakeRect(x, 0, w, NSHeight(self.bounds)); x += w; }
 }
 
-- (void)tap:(NSButton *)sender { ADNavBarPerform(self.window, sender.tag); }
+- (void)tap:(NSButton *)sender { TweakNavBarPerform(self.window, sender.tag); }
 
 @end
 
 #pragma mark - Title observation
 
-@interface ADTitleObserver : NSObject
+@interface TweakTitleObserver : NSObject
 @property (nonatomic, copy) void (^onChange)(void);
 @property (nonatomic, strong) NSHashTable<NSWindow *> *watched;
 - (void)watch:(NSWindow *)w;
 @end
 
-@implementation ADTitleObserver
+@implementation TweakTitleObserver
 - (instancetype)init {
     if ((self = [super init])) _watched = [NSHashTable weakObjectsHashTable];
     return self;
@@ -178,11 +178,11 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 }
 @end
 
-static ADTitleObserver *gTitleObserver;
+static TweakTitleObserver *gTitleObserver;
 
 #pragma mark - Container layout
 
-static ADSidebarURLBar *barFor(NSView *container) { return objc_getAssociatedObject(container, kBarKey); }
+static TweakSidebarURLBar *barFor(NSView *container) { return objc_getAssociatedObject(container, kBarKey); }
 
 static NSView *bodyFor(NSView *container, NSView *header) {
     for (NSView *s in container.subviews)
@@ -191,7 +191,7 @@ static NSView *bodyFor(NSView *container, NSView *header) {
 }
 
 static void applyContainer(NSView *c) {
-    NSView *header = ADChildOfClass(c, kHeaderClass);
+    NSView *header = TweakChildOfClass(c, kHeaderClass);
     NSView *body = header ? bodyFor(c, header) : nil;
     if (!header || !body || !c.isFlipped) return;
 
@@ -202,10 +202,10 @@ static void applyContainer(NSView *c) {
         objc_setAssociatedObject(c, kGapKey, @(H - NSMaxY(body.frame)), OBJC_ASSOCIATION_RETAIN);
     CGFloat gap = [objc_getAssociatedObject(c, kGapKey) doubleValue];
 
-    BOOL on = ADSettings.urlBarMode == ADURLBarModeSidebar && !c.isHiddenOrHasHiddenAncestor;
-    ADSidebarURLBar *bar = barFor(c);
+    BOOL on = TweakSettings.urlBarMode == TweakURLBarModeSidebar && !c.isHiddenOrHasHiddenAncestor;
+    TweakSidebarURLBar *bar = barFor(c);
     if (on && !bar) {
-        bar = [[ADSidebarURLBar alloc] initWithFrame:NSZeroRect];
+        bar = [[TweakSidebarURLBar alloc] initWithFrame:NSZeroRect];
         objc_setAssociatedObject(c, kBarKey, bar, OBJC_ASSOCIATION_RETAIN);
     }
     if (on && bar.superview != c) [c addSubview:bar positioned:NSWindowAbove relativeTo:header];
@@ -219,10 +219,10 @@ static void applyContainer(NSView *c) {
         [bar refresh];
     }
 
-    ADNavButtons *nav = objc_getAssociatedObject(header, kNavKey);
-    BOOL navOn = on && ADSettings.sidebarShowsNavButtons;
+    TweakNavButtons *nav = objc_getAssociatedObject(header, kNavKey);
+    BOOL navOn = on && TweakSettings.sidebarShowsNavButtons;
     if (navOn && !nav) {
-        nav = [[ADNavButtons alloc] initWithFrame:NSZeroRect];
+        nav = [[TweakNavButtons alloc] initWithFrame:NSZeroRect];
         objc_setAssociatedObject(header, kNavKey, nav, OBJC_ASSOCIATION_RETAIN);
     }
     if (navOn) {
@@ -246,32 +246,32 @@ static void hookedLayout(NSView *self, SEL _cmd) {
     // Deferred: we're inside a layout pass.
     if (had != (barFor(self).superview != nil))
         dispatch_async(dispatch_get_main_queue(), ^{
-            [NSNotificationCenter.defaultCenter postNotificationName:ADSettingsDidChangeNotification object:nil];
+            [NSNotificationCenter.defaultCenter postNotificationName:TweakSettingsDidChangeNotification object:nil];
         });
 }
 
-static ADSidebarURLBar *visibleBar(NSWindow *window) {
+static TweakSidebarURLBar *visibleBar(NSWindow *window) {
     for (NSView *c in gContainers.allObjects) {
-        ADSidebarURLBar *bar = barFor(c);
+        TweakSidebarURLBar *bar = barFor(c);
         if (c.window == window && bar.superview && !c.isHiddenOrHasHiddenAncestor && NSWidth(c.frame) > 40) return bar;
     }
     return nil;
 }
 
-BOOL ADSidebarHasURLBar(NSWindow *window) { return visibleBar(window) != nil; }
+BOOL TweakSidebarHasURLBar(NSWindow *window) { return visibleBar(window) != nil; }
 
-BOOL ADSidebarFocusURLBar(NSWindow *window) { return [visibleBar(window) openEditor]; }
+BOOL TweakSidebarFocusURLBar(NSWindow *window) { return [visibleBar(window) openEditor]; }
 
-void ADSidebarInstall(void) {
-    Class cls = ADFindClass(@"_TtC10TabSidebar", @"SidebarContainerRootView");
+void TweakSidebarInstall(void) {
+    Class cls = TweakFindClass(@"_TtC10TabSidebar", @"SidebarContainerRootView");
     if (!cls) { NSLog(@"[daypatch] SidebarContainerRootView not found; sidebar URL bar inactive"); return; }
     gContainers = [NSHashTable weakObjectsHashTable];
-    origLayout = (void *)ADHook(cls, @selector(layout), (IMP)hookedLayout);
+    origLayout = (void *)TweakHook(cls, @selector(layout), (IMP)hookedLayout);
     // Refresh on navigation-ish events: Dia's window title follows the active tab's
     // page title, and switching windows/tabs changes it too. A slow timer covers
     // pages that change URL without changing title.
     void (^refreshAll)(void) = ^{ for (NSView *c in gContainers.allObjects) [barFor(c) refresh]; };
-    gTitleObserver = [ADTitleObserver new];
+    gTitleObserver = [TweakTitleObserver new];
     gTitleObserver.onChange = refreshAll;
     for (NSNotificationName n in @[NSWindowDidBecomeKeyNotification, NSWindowDidBecomeMainNotification, NSWindowDidUpdateNotification])
         [NSNotificationCenter.defaultCenter addObserverForName:n object:nil queue:nil usingBlock:^(NSNotification *note) {
@@ -281,7 +281,7 @@ void ADSidebarInstall(void) {
         }];
     NSTimer *timer = [NSTimer scheduledTimerWithTimeInterval:3 repeats:YES block:^(__unused NSTimer *t) { refreshAll(); }];
     timer.tolerance = 1;
-    [NSNotificationCenter.defaultCenter addObserverForName:ADSettingsDidChangeNotification object:nil queue:nil
+    [NSNotificationCenter.defaultCenter addObserverForName:TweakSettingsDidChangeNotification object:nil queue:nil
                                                 usingBlock:^(__unused NSNotification *n) {
         for (NSView *c in gContainers.allObjects) {
             applyContainer(c);

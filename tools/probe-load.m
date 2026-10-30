@@ -34,7 +34,7 @@ __attribute__((constructor)) static void init(void) {
         for (NSWindow *x in NSApp.windows) if ([NSStringFromClass(x.class) isEqualToString:@"Window.PlatformWindow"] && x.isVisible) w = x;
         [NSApp activateIgnoringOtherApps:YES];
         [w makeKeyAndOrderFront:nil];
-        BOOL (*openEditor)(NSWindow *) = dlsym(RTLD_DEFAULT, "ADSidebarFocusURLBar");
+        BOOL (*openEditor)(NSWindow *) = dlsym(RTLD_DEFAULT, "TweakSidebarFocusURLBar");
         [out appendString:@"--- editor commit\n"];
         openEditor(w);
         after(1, ^{
@@ -52,7 +52,7 @@ __attribute__((constructor)) static void init(void) {
                     NSDictionary *err = nil;
                     NSAppleEventDescriptor *res = [[[NSAppleScript alloc] initWithSource:src] executeAndReturnError:&err];
                     after(3, ^{
-                        void *urlFor = dlsym(RTLD_DEFAULT, "ADURLForWindow");
+                        void *urlFor = dlsym(RTLD_DEFAULT, "TweakURLForWindow");
                         [out appendFormat:@"result=%@ err=%@ tabs %ld -> %ld active=%@\n", res, err, (long)before, (long)tabCount(w), ((NSString *(*)(NSWindow *))urlFor)(w)];
                         [out writeToFile:@"/tmp/daypatch-load.txt" atomically:YES encoding:NSUTF8StringEncoding error:nil];
                     });

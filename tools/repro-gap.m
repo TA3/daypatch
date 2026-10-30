@@ -48,7 +48,7 @@ static NSMenuItem *menuItem(NSString *title) {
 __attribute__((constructor)) static void init(void) {
     out = [NSMutableString string];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 8 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        Class settings = NSClassFromString(@"ADSettings");
+        Class settings = NSClassFromString(@"TweakSettings");
         NSInteger oldMode = (NSInteger)[settings performSelector:@selector(urlBarMode)];
         ((void (*)(id, SEL, NSInteger))objc_msgSend)(settings, @selector(setURLBarMode:), 1);
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{
