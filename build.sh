@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds "~/Applications/Patched Dia.app": a re-signed copy of /Applications/Dia.app
+# Builds "~/Applications/Dia ✦.app": a re-signed copy of /Applications/Dia.app
 # with daypatch.dylib injected. Re-run after every Dia update.
 #
 #   ./build.sh            build and install
@@ -8,11 +8,11 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SRC="/Applications/Dia.app"
-DEST="$HOME/Applications/Patched Dia.app"
+DEST="$HOME/Applications/Dia ✦.app"
 OUT="$HERE/build"
 
 if pgrep -f "$DEST/Contents/MacOS/Dia" >/dev/null; then
-    echo "Quit Patched Dia first." >&2
+    echo "Quit Dia ✦ first." >&2
     exit 1
 fi
 
@@ -36,7 +36,7 @@ codesign --remove-signature "$DEST/Contents/MacOS/Dia"
 # Sparkle would replace this copy with a stock build; update the regular Dia instead.
 /usr/libexec/PlistBuddy -c "Set :SUEnableAutomaticChecks false" "$PLIST" 2>/dev/null \
     || /usr/libexec/PlistBuddy -c "Add :SUEnableAutomaticChecks bool false" "$PLIST"
-/usr/libexec/PlistBuddy -c "Set :CFBundleName Patched Dia" "$PLIST" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Set :CFBundleName Dia ✦" "$PLIST" 2>/dev/null || true
 
 # Ad-hoc signature. Restricted entitlements (keychain groups, associated domains,
 # passkeys) can't be kept without Dia's provisioning profile, so they're dropped.

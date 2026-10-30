@@ -41,7 +41,7 @@ void ADHealthWrite(void) {
     [json writeToFile:[dir stringByAppendingPathComponent:@"health.json"] atomically:YES];
 }
 
-// Background mode (no menu bar app): when Patched Dia quits, kick the companion's
+// Background mode (no menu bar app): when Dia ✦ quits, kick the companion's
 // launchd job so a pending patch or Dia update happens right away.
 void ADKickCompanionOnQuit(void) {
     [NSNotificationCenter.defaultCenter addObserverForName:NSApplicationWillTerminateNotification object:nil queue:nil usingBlock:^(__unused NSNotification *n) {

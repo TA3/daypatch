@@ -235,6 +235,29 @@ static void hookedNTPLayout(NSView *self, SEL _cmd) {
         });
 }
 
+// Tab hover card: "Chat with this tab" and "Create context bundle" (tabs handed to
+// the AI). Matched by the action button class and its tooltip.
+static BOOL isAIHoverAction(NSView *b) {
+    NSString *t = b.toolTip ?: b.accessibilityLabel;
+    return [t isEqualToString:@"Chat with this tab"] || [t isEqualToString:@"Create context bundle"];
+}
+static void applyHoverAction(NSView *b) {
+    if (isAIHoverAction(b)) {
+        BOOL hide = [ADSettings boolForKey:ADKeyHideAI];
+        if (b.hidden != hide) b.hidden = hide;
+    }
+}
+static void (*origActionSetToolTip)(id, SEL, NSString *);
+static void hookedActionSetToolTip(NSView *self, SEL _cmd, NSString *tip) {
+    origActionSetToolTip(self, _cmd, tip);
+    applyHoverAction(self);
+}
+static void (*origActionMoveToWindow)(id, SEL);
+static void hookedActionMoveToWindow(NSView *self, SEL _cmd) {
+    origActionMoveToWindow(self, _cmd);
+    applyHoverAction(self);
+}
+
 // URL editor / composer: placeholder reads as a URL bar, not a chat box.
 static NSString *const kURLPlaceholder = @"Search or enter URL";
 static NSAttributedString *urlPlaceholder(NSAttributedString *ph) {
@@ -352,6 +375,11 @@ void ADPrivacyInstall(void) {
         hookLayout(@"NewTabPage.NewTabPageContentView", (IMP)hookedNTPLayout, &origNTPLayout);
         hookLayout(@"AssistantCapabilitiesUI.AssistantCapabilitiesToolbarView", (IMP)hookedCapsLayout, &origCapsLayout);
         hookLayout(@"BoostCommandBar.ToolbarView", (IMP)hookedToolbarLayout, &origToolbarLayout);
+        Class hoverAction = NSClassFromString(@"TabUI.TabPopoverActionButton");
+        if (hoverAction) {
+            origActionSetToolTip = (void *)ADHook(hoverAction, @selector(setToolTip:), (IMP)hookedActionSetToolTip);
+            origActionMoveToWindow = (void *)ADHook(hoverAction, @selector(viewDidMoveToWindow), (IMP)hookedActionMoveToWindow);
+        }
         Class sugg = NSClassFromString(@"BoostCommandBar.SuggestionsView");
         if (sugg) origSuggestionsSetFrame = (void *)ADHook(sugg, @selector(setFrame:), (IMP)hookedSuggestionsSetFrame);
         Class panel = NSClassFromString(@"AssistantPanelUIBase.AssistantPanelRootView");

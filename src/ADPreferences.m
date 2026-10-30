@@ -171,7 +171,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
         [self rowWithTitle:@"Back, forward and reload buttons" detail:@"Shown next to the window controls." control:[self switchForKey:ADKeySidebarNavButtons] key:ADKeySidebarNavButtons],
     ]];
     NSView *privacyGroup = [self groupWithRows:@[
-        [self rowWithTitle:@"Hide AI features" detail:@"Chat menus and shortcuts, Chats in the sidebar, the Chat button, \u201cAdd tabs or files\u201d, and page content extraction." control:[self switchForKey:ADKeyHideAI] key:ADKeyHideAI],
+        [self rowWithTitle:@"Hide AI features" detail:@"Chat menus and shortcuts, Chats in the sidebar, the Chat button, \u201cChat with this tab\u201d on tab previews, \u201cAdd tabs or files\u201d, and page content extraction." control:[self switchForKey:ADKeyHideAI] key:ADKeyHideAI],
         [self rowWithTitle:@"Block AI services" detail:@"Dia's AI endpoints (chat, AI search, artifacts) and Google's Gemini API. Hover for the full list." control:[self switchForKey:ADKeyBlockAI] key:ADKeyBlockAI],
         [self rowWithTitle:@"Block telemetry" detail:@"Datadog, Sentry, Segment, LaunchDarkly events and Dia's OpenTelemetry gateway." control:[self switchForKey:ADKeyBlockTelemetry] key:ADKeyBlockTelemetry],
     ]];
@@ -190,7 +190,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
         [self rowWithTitle:@"Renderer process limit" detail:@"Tabs share processes above this number: less memory with many tabs, but one crash can take several tabs with it." control:_rendererPopup key:ADKeyRendererLimit],
         [self rowWithTitle:@"Disable background networking" detail:@"Stops Chromium's background updaters (components, field trials). May delay Safe Browsing list updates." control:[self switchForKey:ADKeyNoBackgroundNetworking] key:ADKeyNoBackgroundNetworking],
     ]];
-    NSTextField *perfNote = [self label:@"Performance options apply after restarting Patched Dia." size:11 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor];
+    NSTextField *perfNote = [self label:@"Performance options apply after restarting Dia." size:11 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor];
 
     NSTextField *footer = [self label:@"Press ⌃⌘U to switch between Dia's URL bar and the option above.\nDayPatch is an unofficial patch. Rebuild it after each Dia update."
                                  size:11 weight:NSFontWeightRegular color:NSColor.tertiaryLabelColor];
@@ -257,7 +257,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 }
 
 - (void)updateBlocked {
-    self.blockedLabel.stringValue = [NSString stringWithFormat:@"%lu requests blocked since launch. Blocking changes fully apply after restarting Patched Dia.",
+    self.blockedLabel.stringValue = [NSString stringWithFormat:@"%lu requests blocked since launch. Blocking changes fully apply after restarting Dia.",
                                      (unsigned long)ADBlockedRequestCount()];
 }
 

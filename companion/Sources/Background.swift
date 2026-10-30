@@ -1,6 +1,6 @@
 // Background mode: no menu bar icon, no running app. A launchd job runs
 // `DayPatch --background-check` when Dia changes (e.g. it updated itself), every 30
-// minutes, and right after Patched Dia quits (the patch kicks the job). Each run
+// minutes, and right after Dia ✦ quits (the patch kicks the job). Each run
 // re-patches if needed and exits.
 import AppKit
 import UserNotifications
@@ -52,16 +52,16 @@ func runBackgroundCheck() async {
     let engine = PatchEngine(resources: Bundle.main.resourceURL!)
     let autoRepatch = Prefs.autoRepatch
 
-    // Kicked as Patched Dia quits: give it a moment to finish exiting.
+    // Kicked as Dia ✦ quits: give it a moment to finish exiting.
     for _ in 0..<30 where PatchEngine.patchedIsRunning { try? await Task.sleep(nanoseconds: 500_000_000) }
 
     if case .needsPatch(let why) = engine.status().state, autoRepatch, !PatchEngine.patchedIsRunning {
         do {
             try engine.patch()
-            await notify("Patched Dia is ready", "\(why) — patched for Dia \(PatchEngine.version(PatchEngine.source) ?? "").")
+            await notify("\(PatchEngine.appName) is ready", "\(why) — patched for Dia \(PatchEngine.version(PatchEngine.source) ?? "").")
         } catch PatchError.busy {
         } catch {
-            await notify("Couldn't patch Patched Dia", error.localizedDescription)
+            await notify("Couldn't patch Dia", error.localizedDescription)
         }
     }
 
@@ -73,7 +73,7 @@ func runBackgroundCheck() async {
             do {
                 try await SelfUpdater.install(r)
                 Prefs.availableSelfVersion = nil
-                await notify("DayPatch updated to \(r.version)", "Patched Dia will be re-patched with it.")
+                await notify("DayPatch updated to \(r.version)", "\(PatchEngine.appName) will be re-patched with it.")
                 return   // the new DayPatch re-patches on its next run
             } catch {
                 await notify("Couldn't update DayPatch", error.localizedDescription)

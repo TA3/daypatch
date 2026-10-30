@@ -27,7 +27,7 @@ NSString *const ADKeySidebarNavButtons = @"daypatch.sidebarShowsNavButtons";
     [NSUserDefaults.standardUserDefaults registerDefaults:@{
         ADKeyMode: @(ADURLBarModeSidebar),
         ADKeyLastMode: @(ADURLBarModeSidebar),
-        ADKeyRevealOnHover: @YES,
+        ADKeyRevealOnHover: @NO,
         ADKeyCmdLFocusesSidebar: @YES,
         ADKeySidebarFullURL: @NO,
         ADKeySidebarNavButtons: @YES,

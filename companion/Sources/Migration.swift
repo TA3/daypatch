@@ -8,7 +8,8 @@ enum Migration {
     private static let home = FileManager.default.homeDirectoryForCurrentUser
     private static let oldAgents = ["dev.ta3.arced.watch", "dev.ta3.arced"]
     private static let oldCompanion = home.appendingPathComponent("Applications/Arced.app")
-    private static let oldPatched = home.appendingPathComponent("Applications/Arced Dia.app")
+    private static let oldPatched = [home.appendingPathComponent("Applications/Arced Dia.app"),
+                                     home.appendingPathComponent("Applications/Patched Dia.app")]
 
     /// Returns true if the old background job existed (so the caller re-creates it under the new name).
     @discardableResult
@@ -39,12 +40,12 @@ enum Migration {
         return hadBackgroundJob
     }
 
-    /// After Patched Dia exists: move the old apps to the Trash (recoverable).
+    /// After Dia ✦ exists: move the old apps to the Trash (recoverable).
     static func trashOldApps() {
         let fm = FileManager.default
-        guard fm.fileExists(atPath: PatchEngine.destination.path) else { return }
+        guard PatchEngine.isPatched(PatchEngine.destination) else { return }
         let running = NSWorkspace.shared.runningApplications.compactMap { $0.bundleURL?.resolvingSymlinksInPath().path }
-        for app in [oldPatched, oldCompanion] where fm.fileExists(atPath: app.path) && !running.contains(app.resolvingSymlinksInPath().path) {
+        for app in oldPatched + [oldCompanion] where fm.fileExists(atPath: app.path) && !running.contains(app.resolvingSymlinksInPath().path) {
             try? fm.trashItem(at: app, resultingItemURL: nil)
         }
     }

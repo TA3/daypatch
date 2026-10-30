@@ -1,6 +1,7 @@
-// DayPatch: keeps Patched Dia patched.
-//  - Rebuilds Patched Dia when Dia (or daypatch itself) changes.
-//  - Dia updates itself as usual (open the regular Dia); DayPatch re-patches afterwards.
+// DayPatch: keeps Dia ✦ patched.
+//  - Patches Dia itself (or, optionally, a separate copy) and re-patches when Dia
+//    (or daypatch itself) changes.
+//  - Dia updates itself as usual; DayPatch re-patches afterwards.
 //  - Shows which daypatch features still work after a Dia update.
 // Opening the app shows its window. The menu bar icon is Always / When Needed / Never.
 import AppKit
@@ -25,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         c.onChange = { [weak self] in self?.refresh() }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
 
-        // Re-check when Dia or Patched Dia quits (that's when patching/updating is possible).
+        // Re-check when Dia or Dia ✦ quits (that's when patching/updating is possible).
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] note in
             guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
                   app.bundleIdentifier == "company.thebrowser.dia" else { return }
@@ -107,12 +108,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         menu.addItem(info(c.busy ?? c.statusLine))
         if let a = c.attention { menu.addItem(info("⚠︎ \(a)")) }
         menu.addItem(.separator())
-        menu.addItem(item("Open Patched Dia", "o") { $0.c.openPatchedDia() })
+        menu.addItem(item("Open \(PatchEngine.appName)", "o") { $0.c.openPatchedDia() })
         if let r = c.selfUpdate {
             menu.addItem(item("Update DayPatch to \(r.version)", "") { $0.c.installSelfUpdate(r) })
         }
         menu.addItem(item("Update Dia…", "u") { $0.c.updateDia(); $0.showWindow() })
-        let patch = item(c.status.isUpToDate ? "Rebuild Patched Dia" : "Patch Now", "p") { $0.c.repatch() }
+        let patch = item(c.status.isUpToDate ? "Rebuild \(PatchEngine.appName)" : "Patch Now", "p") { $0.c.repatch() }
         patch.isEnabled = c.busy == nil
         menu.addItem(patch)
         menu.addItem(.separator())
@@ -139,7 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 }
 
 // Diagnostics: DayPatch.app/Contents/MacOS/DayPatch --status | --patch | --background-check | ...
-let cliFlags: Set<String> = ["--status", "--patch", "--update-from", "--background-check", "--background-mode", "--make-icon", "--help"]
+let cliFlags: Set<String> = ["--status", "--patch", "--update-from", "--background-check", "--background-mode", "--make-icon", "--restore", "--mode", "--help"]
 if let flag = CommandLine.arguments.dropFirst().first, cliFlags.contains(flag) {
     let engine = PatchEngine(resources: Bundle.main.resourceURL!)
     let done = DispatchSemaphore(value: 0)
@@ -149,8 +150,8 @@ if let flag = CommandLine.arguments.dropFirst().first, cliFlags.contains(flag) {
             switch flag {
             case "--status":
                 let s = engine.status()
-                print("Patched Dia running: \(PatchEngine.patchedIsRunning)  Dia running: \(PatchEngine.diaIsRunning)")
-                print("Dia: \(s.diaVersion ?? "missing")  Patched Dia: \(s.patchedFrom ?? "not built")  patch: \(engine.patchVersion)  state: \(s.state)  menu bar: \(Prefs.menuBarMode.rawValue)  background job: \(BackgroundAgent.isInstalled)")
+                print("mode: \(PatchEngine.mode.rawValue)  target: \(PatchEngine.destination.path)  running: \(PatchEngine.patchedIsRunning)  Dia running: \(PatchEngine.diaIsRunning)")
+                print("Dia: \(s.diaVersion ?? "missing")  Dia ✦: \(s.patchedFrom ?? "not built")  patch: \(engine.patchVersion)  state: \(s.state)  menu bar: \(Prefs.menuBarMode.rawValue)  background job: \(BackgroundAgent.isInstalled)")
             case "--background-mode":
                 let on = CommandLine.arguments.count > 2 && CommandLine.arguments[2] == "on"
                 if on { LoginItem.set(false); BackgroundAgent.install() } else { BackgroundAgent.uninstall() }
@@ -165,11 +166,18 @@ if let flag = CommandLine.arguments.dropFirst().first, cliFlags.contains(flag) {
                 await runBackgroundCheck()
             case "--make-icon":
                 try DayPatchIcon.writeICNS(to: URL(fileURLWithPath: CommandLine.arguments.count > 2 ? CommandLine.arguments[2] : "."))
+            case "--restore":
+                try engine.restoreOriginal()
+                print("Restored: \(PatchEngine.version(PatchEngine.source) ?? "?")")
+            case "--mode":
+                guard CommandLine.arguments.count > 2, let m = PatchMode(rawValue: CommandLine.arguments[2]) else { print("usage: --mode inPlace|copy"); break }
+                try engine.switchMode(to: m)
+                print("Mode: \(PatchEngine.mode.rawValue)")
             case "--patch":
                 try engine.patch()
                 print("Patched: \(PatchEngine.version(PatchEngine.destination) ?? "?")")
             default:
-                print("usage: DayPatch [--status | --patch | --background-check | --background-mode on|off]")
+                print("usage: DayPatch [--status | --patch | --restore | --mode inPlace|copy | --background-check | --background-mode on|off]")
             }
         } catch {
             print("error: \(error.localizedDescription)")

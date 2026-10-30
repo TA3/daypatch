@@ -9,7 +9,7 @@ struct DayPatchWindowView: View {
         VStack(alignment: .leading, spacing: 18) {
             header
             Group {
-                section("Patched Dia") { patchedRows }
+                section(PatchEngine.appName) { patchedRows }
                 section("Updates") { updateRows }
                 if let h = c.health { section("Features") { healthRows(h) } }
                 section("Settings") { settingsRows }
@@ -63,6 +63,25 @@ struct DayPatchWindowView: View {
         } trailing: {
             Button(c.status.isUpToDate ? "Rebuild" : "Patch") { c.repatch() }.disabled(c.busy != nil)
         }
+        Divider().padding(.leading, 14)
+        row {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Patch Dia directly")
+                Text(c.patchInPlace
+                     ? "Dia itself becomes \(PatchEngine.appName). The original is kept, so you can restore it anytime."
+                     : "\(PatchEngine.appName) is a separate copy in ~/Applications; your regular Dia stays untouched.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        } trailing: {
+            Toggle("", isOn: Binding(get: { c.patchInPlace }, set: { c.setPatchInPlace($0) }))
+                .labelsHidden().toggleStyle(.switch).controlSize(.small).disabled(c.busy != nil)
+        }
+        if c.patchInPlace, PatchEngine.isPatched(PatchEngine.source) {
+            Divider().padding(.leading, 14)
+            row { Text("Put the original Dia back") } trailing: {
+                Button("Restore") { c.restoreOriginal() }.disabled(c.busy != nil)
+            }
+        }
     }
 
     @ViewBuilder private var updateRows: some View {
@@ -83,7 +102,9 @@ struct DayPatchWindowView: View {
         row {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Dia updates itself")
-                Text(c.updateHint ?? "Open the regular Dia and use its own updater. DayPatch re-patches when Dia changes.")
+                Text(c.updateHint ?? (c.patchInPlace
+                     ? "Use Dia ▸ Check for Updates in \(PatchEngine.appName). If that fails, Update Dia… opens the original to update; DayPatch re-patches after."
+                     : "Open the regular Dia and use its own updater. DayPatch re-patches when Dia changes."))
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         } trailing: {
@@ -113,7 +134,7 @@ struct DayPatchWindowView: View {
                 }
             }
             HStack {
-                Text("Checked when Patched Dia last opened (Dia \(h.diaVersion))").font(.caption).foregroundStyle(.secondary)
+                Text("Checked when \(PatchEngine.appName) last opened (Dia \(h.diaVersion))").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if h.failures > 0, h.date != Prefs.dismissedHealthDate {
                     Button("Dismiss") { c.dismissHealth() }.controlSize(.small)

@@ -2,7 +2,7 @@
 #
 # The release contains only DayPatch.app (this repo's companion + the daypatch
 # patch). Nothing of Dia's is downloaded, built or shipped: each user's DayPatch
-# builds Patched Dia from their own installed Dia.
+# builds Dia ✦ from their own installed Dia.
 #
 # Secrets:
 #   DAYPATCH_UPDATE_PRIVATE_KEY   required. Signs DayPatch.zip for the in-app updater

@@ -69,7 +69,7 @@ func attentionReason(status: PatchStatus, lastError: String?, health: Health?) -
         return "\(h.failures) feature\(h.failures == 1 ? "" : "s") stopped working"
     }
     if case .needsPatch = status.state, PatchEngine.patchedIsRunning || !Prefs.autoRepatch {
-        return "Quit Patched Dia to finish patching"
+        return "Quit \(PatchEngine.targetName) to finish patching"
     }
     if let v = Prefs.availableSelfVersion, !Prefs.autoUpdateSelf {
         return "DayPatch \(v) is available"
@@ -95,6 +95,8 @@ final class Controller: ObservableObject {
     @Published private(set) var selfUpdateChecking = false
     @Published var openAtLogin = LoginItem.isEnabled { didSet { LoginItem.set(openAtLogin && menuBarMode == .always) } }
     @Published var menuBarMode = Prefs.menuBarMode { didSet { applyMode() } }
+    /// Patch /Applications/Dia.app itself (default) rather than a separate copy.
+    var patchInPlace: Bool { PatchEngine.mode == .inPlace }
 
     /// Called whenever anything changes (status item refresh).
     var onChange: (() -> Void)?
@@ -109,9 +111,10 @@ final class Controller: ObservableObject {
     var statusLine: String {
         switch status.state {
         case .diaMissing: return "Dia isn't installed in /Applications"
-        case .notInstalled: return "Not built yet"
-        case .upToDate: return "Patched for Dia \(status.diaVersion ?? "")"
-        case .needsPatch(let why): return "Needs patching: \(why)" + (pendingRepatch ? " — waiting for Patched Dia to quit" : "")
+        case .notInstalled: return patchInPlace ? "Dia isn't patched yet" : "Not built yet"
+        case .restored: return "Original Dia restored — patch to use \(PatchEngine.appName)"
+        case .upToDate: return "\(PatchEngine.appName) · Dia \(status.diaVersion ?? "")"
+        case .needsPatch(let why): return "Needs patching: \(why)" + (pendingRepatch ? " — waiting for \(PatchEngine.targetName) to quit" : "")
         }
     }
 
@@ -148,24 +151,73 @@ final class Controller: ObservableObject {
         onChange?()
     }
 
-    /// Dia updates itself: open the regular Dia (whose own updater checks and installs),
-    /// and when it quits with a new version on disk, DayPatch re-patches from it.
+    /// Dia updates itself. In place, Dia ✦ keeps Dia's own updater; this is the fallback:
+    /// put the original Dia back, open it to update, and re-patch once it quits.
+    /// In copy mode: open the regular Dia; DayPatch re-patches from the new version.
     @Published private(set) var updateHint: String?
 
     func updateDia() {
+        guard busy == nil else { return }
         if PatchEngine.patchedIsRunning {
-            updateHint = "Quit Patched Dia first — both share one profile."
+            updateHint = "Quit \(PatchEngine.targetName) first" + (patchInPlace ? "." : " — both share one profile.")
             return
         }
         updateHint = "In Dia, choose Dia ▸ Check for Updates. Quit Dia when it's done; DayPatch re-patches automatically."
-        NSWorkspace.shared.openApplication(at: PatchEngine.source, configuration: .init())
+        guard patchInPlace else {
+            NSWorkspace.shared.openApplication(at: PatchEngine.source, configuration: .init())
+            return
+        }
+        run("Restoring the original Dia…", { try $0.restoreOriginal(); PatchEngine.restoredByUser = false }) { ok in
+            guard ok else { return }
+            self.pendingRepatch = true
+            NSWorkspace.shared.openApplication(at: PatchEngine.source, configuration: .init())
+        }
+    }
+
+    /// Puts the untouched Dia back; DayPatch leaves it alone until Patch is clicked.
+    func restoreOriginal() {
+        if PatchEngine.diaIsRunning { lastError = "Quit Dia first."; refresh(); return }
+        run("Restoring the original Dia…", { try $0.restoreOriginal() }) { _ in }
+    }
+
+    func setPatchInPlace(_ on: Bool) {
+        let mode: PatchMode = on ? .inPlace : .copy
+        guard mode != PatchEngine.mode else { return }
+        if PatchEngine.diaIsRunning || PatchEngine.isRunning(PatchEngine.copyDestination) {
+            lastError = "Quit Dia first, then switch."
+            refresh()
+            return
+        }
+        run(on ? "Patching Dia directly…" : "Restoring Dia and building \(PatchEngine.appName)…", { try $0.switchMode(to: mode) }) { ok in
+            if ok { Migration.trashOldApps() }
+        }
+    }
+
+    /// Runs an engine job off the main thread, showing `label` while it works.
+    private func run(_ label: String, _ job: @escaping @Sendable (PatchEngine) throws -> Void, then: @escaping (Bool) -> Void) {
+        guard busy == nil else { return }
+        busy = label
+        onChange?()
+        let engine = self.engine
+        Task.detached {
+            let result = Result { try job(engine) }
+            await MainActor.run {
+                self.busy = nil
+                switch result {
+                case .success: self.lastError = nil
+                case .failure(let e): self.lastError = e.localizedDescription
+                }
+                then(result.isSuccess)
+                self.refresh()
+            }
+        }
     }
 
     func repatch(auto: Bool = false) {
         guard busy == nil else { return }
         if PatchEngine.patchedIsRunning {
             pendingRepatch = true
-            if !auto { notifyUser("Quit Patched Dia to finish patching", "DayPatch will rebuild it as soon as it closes.") }
+            if !auto { notifyUser("Quit \(PatchEngine.targetName) to finish patching", "DayPatch will patch it as soon as it closes.") }
             onChange?()
             return
         }
@@ -182,12 +234,12 @@ final class Controller: ObservableObject {
                 case .success:
                     self.lastError = nil
                     Migration.trashOldApps()
-                    if auto { notifyUser("Patched Dia is ready", "\(reason) — patched for Dia \(PatchEngine.version(PatchEngine.source) ?? "").") }
+                    if auto { notifyUser("\(PatchEngine.appName) is ready", "\(reason) — patched for Dia \(PatchEngine.version(PatchEngine.source) ?? "").") }
                 case .failure(PatchError.busy):
                     break
                 case .failure(let e):
                     self.lastError = e.localizedDescription
-                    notifyUser("Couldn't patch Patched Dia", e.localizedDescription)
+                    notifyUser("Couldn't patch Dia", e.localizedDescription)
                 }
                 self.refresh()
             }
@@ -223,7 +275,7 @@ final class Controller: ObservableObject {
             do {
                 try await SelfUpdater.install(r)
                 Prefs.availableSelfVersion = nil
-                notifyUser("DayPatch updated to \(r.version)", "Patched Dia will be re-patched with it.")
+                notifyUser("DayPatch updated to \(r.version)", "\(PatchEngine.appName) will be re-patched with it.")
                 SelfUpdater.relaunch()
                 NSApp.terminate(nil)
             } catch {
@@ -245,10 +297,12 @@ final class Controller: ObservableObject {
     }
 
     func openPatchedDia() {
-        if !FileManager.default.fileExists(atPath: PatchEngine.destination.path) { repatch(); return }
+        if !PatchEngine.isPatched(PatchEngine.destination) { repatch(); return }
         NSWorkspace.shared.openApplication(at: PatchEngine.destination, configuration: .init())
     }
 }
+
+extension Result { var isSuccess: Bool { if case .success = self { return true }; return false } }
 
 func notifyUser(_ title: String, _ body: String) {
     Task { await notify(title, body) }
