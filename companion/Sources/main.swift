@@ -39,9 +39,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         // First launch: set up the background job for the default mode.
         if UserDefaults.standard.string(forKey: "menuBarMode") == nil { c.applyMode() }
 
+        Handoff.shared.onFinish = { [weak self] in self?.refresh() }
         c.tick()
-        if !launchedForAttention && !launchedAtLogin { showWindow() }
+        // Launched to open a daypatch:// link (the passkey handoff): no window.
+        let openedForURL = (n.userInfo?[NSApplication.launchIsDefaultUserInfoKey] as? Bool) == false
+        if !launchedForAttention && !launchedAtLogin && !openedForURL { showWindow() }
         refresh()
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls where url.scheme == "daypatch" && url.host == "handoff" { Handoff.shared.start() }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
@@ -68,10 +75,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     /// Outside "Always", DayPatch only runs while it has something to show.
     private func quitIfIdle() {
-        guard c.menuBarMode != .always, c.busy == nil, !iconWanted, window?.isVisible != true else { return }
+        guard c.menuBarMode != .always, c.busy == nil, !iconWanted, window?.isVisible != true, !Handoff.shared.isActive else { return }
         // Let any pending work (e.g. a just-started update check) settle first.
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-            guard let self, self.c.menuBarMode != .always, self.c.busy == nil, !self.iconWanted, self.window?.isVisible != true else { return }
+            guard let self, self.c.menuBarMode != .always, self.c.busy == nil, !self.iconWanted, self.window?.isVisible != true,
+                  !Handoff.shared.isActive else { return }
             NSApp.terminate(nil)
         }
     }

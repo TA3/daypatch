@@ -44,6 +44,10 @@ cat > "$OUT/Contents/Info.plist" <<EOF
   <key>CFBundleVersion</key><string>$VERSION</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
+  <key>CFBundleURLTypes</key><array><dict>
+    <key>CFBundleURLName</key><string>dev.ta3.daypatch</string>
+    <key>CFBundleURLSchemes</key><array><string>daypatch</string></array>
+  </dict></array>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>DayPatchRepo</key><string>$REPO</string>
   <key>DayPatchUpdatePublicKey</key><string>$UPDATE_KEY</string>

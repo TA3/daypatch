@@ -102,7 +102,11 @@ cd daypatch
 - 🔄 **Updating Dia:** use **Dia ▸ Check for Updates** as usual; DayPatch re-patches after. If that ever fails, **Update Dia…** in DayPatch restores the original to update it, then re-patches.
 - 🧩 **If Dia changes something:** that feature quietly switches off; DayPatch's health list tells you which.
 - 🔑 **"Dia Safe Storage" prompt:** allow it — Dia ✦ is signed by your Mac, not by Dia.
-- 🪪 **Passkeys & Dia-account keychain items** may not work in Dia ✦.
+- 🔐 **Passkeys:** Apple only lets Dia's own, unmodified app use passkeys from Apple Passwords, so Dia ✦ can't. Options:
+  - **Dia ✦ menu › Use Passkeys in Original Dia…** — reopens your tabs in the original Dia; sign in with Touch ID, then click **Back to Dia ✦**. You stay signed in.
+  - **Use a phone or tablet** (QR code) — the same iCloud passkeys, from your iPhone.
+  - **1Password, Bitwarden** and other password-manager extensions, and **security keys**, work in Dia ✦ directly.
+  - Passkeys saved by Dia's own Touch ID option (rather than Apple Passwords) aren't reachable from Dia ✦ either.
 - ⚠️ **Unofficial:** not affiliated with The Browser Company. A modified Dia likely breaks Dia's terms — your call, your risk.
 
 ---

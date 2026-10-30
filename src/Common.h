@@ -74,6 +74,7 @@ NSArray<NSString *> *TweakTelemetryHosts(void);
 void TweakPerformanceInstall(void);   // call before main()
 NSArray<NSString *> *TweakPerformanceSwitches(void);
 void TweakPaletteInstall(void);
+void TweakHandoffInstall(void);       // "Use Passkeys in Original Dia…"
 BOOL TweakPaletteOpen(NSWindow *window);          // ⌘T: Dia's editor centred, commits open a new tab
 void TweakPaletteEditorClosed(NSWindow *window);
 BOOL TweakCommandBarShow(NSWindow *window, BOOL newTab);
