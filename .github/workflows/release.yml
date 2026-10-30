@@ -31,6 +31,7 @@ jobs:
       - name: Check the tag matches VERSION
         run: |
           test "${GITHUB_REF_NAME}" = "v$(cat VERSION)" || { echo "Tag ${GITHUB_REF_NAME} != v$(cat VERSION)"; exit 1; }
+          grep -qx "## $(cat VERSION)" CHANGELOG.md || { echo "CHANGELOG.md has no section for $(cat VERSION)"; exit 1; }
 
       - name: Tests
         run: ./tests/run.sh
@@ -77,9 +78,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          NOTES="DayPatch ${GITHUB_REF_NAME#v}. Install: unzip, move DayPatch.app to Applications, open it."
+          # This version's section of CHANGELOG.md, without its heading.
+          CHANGES="$(awk -v v="## ${GITHUB_REF_NAME#v}" '$0 == v { on = 1; next } /^## / { on = 0 } on' CHANGELOG.md | sed '/./,$!d')"
+          test -n "$CHANGES" || { echo "CHANGELOG.md has no section for ${GITHUB_REF_NAME#v}"; exit 1; }
+          INSTALL="**Install:** unzip, move DayPatch.app to Applications, open it."
           if [ "$HAS_DEVELOPER_ID" != "true" ]; then
-            NOTES="$NOTES This build isn't notarized: the first time, right-click DayPatch.app → Open."
+            INSTALL="$INSTALL This build isn't notarized: the first time, right-click DayPatch.app → Open."
           fi
+          NOTES="$(printf '%s\n\n%s' "$CHANGES" "$INSTALL")"
           gh release create "$GITHUB_REF_NAME" DayPatch.zip DayPatch.zip.sig DayPatch.zip.sha256 \
             --title "DayPatch ${GITHUB_REF_NAME#v}" --notes "$NOTES" --generate-notes

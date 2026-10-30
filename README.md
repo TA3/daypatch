@@ -130,7 +130,7 @@ DayPatch's own updates are checked with an ed25519 signature made in CI, using a
 ./companion/build.sh --launch  # build and install DayPatch
 ```
 
-**Release:** bump `VERSION` → commit → `git tag vX.Y.Z && git push --tags`. CI tests, builds, signs and publishes.
+**Release:** bump `VERSION` → add its section to [`CHANGELOG.md`](CHANGELOG.md) (becomes the release notes) → commit → `git tag vX.Y.Z && git push --tags`. CI tests, builds, signs and publishes.
 
 **Maintainer setup**
 1. `./scripts/make-update-key.sh` creates the update signing key. Commit `companion/update-public-key.txt`, store the private key with the `gh secret set` command it prints, and back it up.
