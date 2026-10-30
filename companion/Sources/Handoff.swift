@@ -43,10 +43,10 @@ final class Handoff: ObservableObject {
                 original = running
                 observer = NSWorkspace.shared.notificationCenter.addObserver(
                     forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main
-                ) { [weak self] note in
+                ) { note in
                     guard let quit = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
                           quit.processIdentifier == running.processIdentifier else { return }
-                    MainActor.assumeIsolated { self?.finish(reopen: true) }
+                    MainActor.assumeIsolated { Handoff.shared.finish(reopen: true) }
                 }
                 showPanel()
             } catch {
