@@ -1,0 +1,27 @@
+# Builds and tests on every push and pull request. Uses only this repository's
+# code: no copy of Dia is downloaded or built here.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tests
+        run: ./tests/run.sh
+      - name: Build DayPatch.app
+        run: ./companion/build.sh --no-install
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: DayPatch-${{ github.sha }}
+          path: build/DayPatch.app
+          retention-days: 7
