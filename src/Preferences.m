@@ -192,7 +192,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     ]];
     NSTextField *perfNote = [self label:@"Performance options apply after restarting Dia." size:11 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor];
 
-    NSTextField *footer = [self label:@"Press ⌃⌘U to switch between Dia's URL bar and the option above.\nDayPatch is an unofficial patch. Rebuild it after each Dia update."
+    NSTextField *footer = [self label:@"Press ⌃⌘U to switch between Dia's URL bar and the option above.\nDayPatch is unofficial and not affiliated with The Browser Company. It re-patches Dia automatically after updates."
                                  size:11 weight:NSFontWeightRegular color:NSColor.tertiaryLabelColor];
 
     NSStackView *stack = [NSStackView stackViewWithViews:@[

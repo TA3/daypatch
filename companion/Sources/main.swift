@@ -127,6 +127,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         menu.addItem(patch)
         menu.addItem(.separator())
         menu.addItem(item("Settings…", ",") { $0.showWindow() })
+        menu.addItem(item("DayPatch on GitHub", "") { _ in NSWorkspace.shared.open(URL(string: "https://github.com/\(SelfUpdater.repo)")!) })
         menu.addItem(item("Quit DayPatch", "q") { _ in NSApp.terminate(nil) })
     }
 

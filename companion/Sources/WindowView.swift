@@ -176,7 +176,13 @@ struct DayPatchWindowView: View {
 
     private var footer: some View {
         HStack {
-            Text("DayPatch \(c.engine.patchVersion)").foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 4) {
+                    Text("DayPatch \(c.engine.patchVersion) ·").foregroundStyle(.secondary)
+                    Link("GitHub", destination: URL(string: "https://github.com/\(SelfUpdater.repo)")!)
+                }
+                Text("Unofficial · not affiliated with The Browser Company").foregroundStyle(.tertiary)
+            }
             Spacer()
             Button("Quit DayPatch") { NSApp.terminate(nil) }
         }
