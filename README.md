@@ -72,6 +72,7 @@ cd daypatch
 - 🧼 **Clean new tab** — just "Search or enter URL"
 - 🎛️ **Settings pane** — everything lives in Dia → Settings → *DayPatch*
 - ⌨️ **`⌃⌘U`** — flip between Dia's bar and yours
+- 🗂️ **Extra shortcuts** — sort or group tabs by domain, switch profiles, move a tab to the next profile (*optional, each key changeable*)
 
 ### 🔒 Privacy
 - 🙈 **Hide AI features** — chat menus, Chats, the Chat button, *Chat with this tab*, page extraction

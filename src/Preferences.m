@@ -49,6 +49,8 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 @property (nonatomic, strong) NSTextField *blockedLabel;
 @property (nonatomic, strong) NSPopUpButton *rendererPopup;
 @property (nonatomic, strong) NSPopUpButton *commandBarPopup;
+@property (nonatomic, strong) NSPopUpButton *profileNumberPopup;
+@property (nonatomic, strong) NSMutableArray<TweakShortcutRecorder *> *recorders;
 @property (nonatomic, weak) NSScrollView *scroll;
 @property (nonatomic, strong) NSTimer *timer;
 @property (nonatomic, strong) NSMutableDictionary<NSString *, NSSwitch *> *switches;
@@ -170,6 +172,28 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
         [self rowWithTitle:@"Show full URL" detail:@"Otherwise only the site's domain is shown." control:[self switchForKey:TweakKeySidebarFullURL] key:TweakKeySidebarFullURL],
         [self rowWithTitle:@"Back, forward and reload buttons" detail:@"Shown next to the window controls." control:[self switchForKey:TweakKeySidebarNavButtons] key:TweakKeySidebarNavButtons],
     ]];
+    _recorders = [NSMutableArray array];
+    NSMutableArray *shortcutRows = [NSMutableArray arrayWithObject:
+        [self rowWithTitle:@"Extra shortcuts" detail:@"Keys for tidying tabs and switching profiles. Click a shortcut to change it." control:[self switchForKey:TweakKeyExtraShortcuts] key:TweakKeyExtraShortcuts]];
+    for (NSDictionary *a in TweakShortcutActions()) {
+        TweakShortcutRecorder *r = [[TweakShortcutRecorder alloc] initWithActionId:a[@"id"]];
+        [_recorders addObject:r];
+        [shortcutRows addObject:[self rowWithTitle:a[@"title"] detail:a[@"detail"] control:r key:[@"shortcut." stringByAppendingString:a[@"id"]]]];
+    }
+    _profileNumberPopup = [[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
+    _profileNumberPopup.controlSize = NSControlSizeSmall;
+    _profileNumberPopup.font = [NSFont systemFontOfSize:NSFont.smallSystemFontSize];
+    NSEventModifierFlags ctrl = NSEventModifierFlagControl, opt = NSEventModifierFlagOption, cmd = NSEventModifierFlagCommand;
+    for (NSArray *m in @[@[@"⌃1 … ⌃9", @(ctrl)], @[@"⌥1 … ⌥9", @(opt)], @[@"⌃⌥1 … ⌃⌥9", @(ctrl | opt)], @[@"⌃⌘1 … ⌃⌘9", @(ctrl | cmd)], @[@"None", @0]]) {
+        [_profileNumberPopup addItemWithTitle:m[0]];
+        _profileNumberPopup.lastItem.tag = [m[1] integerValue];
+    }
+    _profileNumberPopup.target = self;
+    _profileNumberPopup.action = @selector(profileNumberChanged:);
+    [shortcutRows addObject:[self rowWithTitle:@"Switch to profile 1–9" detail:@"In the order Dia lists your profiles. macOS uses ⌃1… for Spaces when that's turned on in Keyboard Shortcuts."
+                                       control:_profileNumberPopup key:TweakKeyProfileNumberMods]];
+    NSView *shortcutsGroup = [self groupWithRows:shortcutRows];
+
     NSView *privacyGroup = [self groupWithRows:@[
         [self rowWithTitle:@"Hide AI features" detail:@"Chat menus and shortcuts, Chats in the sidebar, the Chat button, \u201cChat with this tab\u201d on tab previews, \u201cAdd tabs or files\u201d, and page content extraction." control:[self switchForKey:TweakKeyHideAI] key:TweakKeyHideAI],
         [self rowWithTitle:@"Block AI services" detail:@"Dia's AI endpoints (chat, AI search, artifacts) and Google's Gemini API. Hover for the full list." control:[self switchForKey:TweakKeyBlockAI] key:TweakKeyBlockAI],
@@ -198,6 +222,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     NSStackView *stack = [NSStackView stackViewWithViews:@[
         [self label:@"URL bar" size:13 weight:NSFontWeightSemibold color:NSColor.labelColor], urlGroup,
         [self label:@"Sidebar URL bar" size:13 weight:NSFontWeightSemibold color:NSColor.labelColor], sidebarGroup,
+        [self label:@"Shortcuts" size:13 weight:NSFontWeightSemibold color:NSColor.labelColor], shortcutsGroup,
         [self label:@"Privacy" size:13 weight:NSFontWeightSemibold color:NSColor.labelColor], privacyGroup, _blockedLabel,
         [self label:@"Performance" size:13 weight:NSFontWeightSemibold color:NSColor.labelColor], perfGroup, perfNote,
         footer,
@@ -207,6 +232,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     stack.spacing = 8;
     [stack setCustomSpacing:20 afterView:urlGroup];
     [stack setCustomSpacing:20 afterView:sidebarGroup];
+    [stack setCustomSpacing:20 afterView:shortcutsGroup];
     [stack setCustomSpacing:20 afterView:_blockedLabel];
     [stack setCustomSpacing:14 afterView:perfNote];
     stack.translatesAutoresizingMaskIntoConstraints = NO;
@@ -229,6 +255,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
         [stack.trailingAnchor constraintEqualToAnchor:doc.trailingAnchor constant:-20],
         [urlGroup.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
         [sidebarGroup.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
+        [shortcutsGroup.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
         [privacyGroup.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
         [perfGroup.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
         [footer.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
@@ -278,6 +305,13 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     [self setRow:TweakKeyRevealOnHover enabled:mode != TweakURLBarModeTop];
     for (NSString *k in @[TweakKeyCmdLFocusesSidebar, TweakKeySidebarFullURL, TweakKeySidebarNavButtons])
         [self setRow:k enabled:mode == TweakURLBarModeSidebar];
+    BOOL shortcuts = [TweakSettings boolForKey:TweakKeyExtraShortcuts];
+    for (TweakShortcutRecorder *r in self.recorders) {
+        [r sync];
+        [self setRow:[@"shortcut." stringByAppendingString:r.actionId] enabled:shortcuts];
+    }
+    [self.profileNumberPopup selectItemWithTag:TweakProfileNumberMods()];
+    [self setRow:TweakKeyProfileNumberMods enabled:shortcuts];
 }
 
 - (void)modeChanged:(NSPopUpButton *)p { [TweakSettings setURLBarMode:p.selectedTag]; }
@@ -287,6 +321,10 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 }
 - (void)rendererChanged:(NSPopUpButton *)p {
     [NSUserDefaults.standardUserDefaults setInteger:p.selectedTag forKey:TweakKeyRendererLimit];
+    [NSNotificationCenter.defaultCenter postNotificationName:TweakSettingsDidChangeNotification object:nil];
+}
+- (void)profileNumberChanged:(NSPopUpButton *)p {
+    [NSUserDefaults.standardUserDefaults setInteger:p.selectedTag forKey:TweakKeyProfileNumberMods];
     [NSNotificationCenter.defaultCenter postNotificationName:TweakSettingsDidChangeNotification object:nil];
 }
 - (void)switchChanged:(NSSwitch *)s { [TweakSettings setBool:s.state == NSControlStateValueOn forKey:s.identifier]; }

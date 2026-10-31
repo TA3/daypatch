@@ -6,6 +6,7 @@ static void installKeyMonitor(void) {
     [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent *(NSEvent *e) {
         NSEventModifierFlags mods = e.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask;
         NSString *key = e.charactersIgnoringModifiers.lowercaseString;
+        if (TweakShortcutsHandle(e)) return nil;
         if (mods == (NSEventModifierFlagControl | NSEventModifierFlagCommand) && [key isEqualToString:@"u"]) {
             [TweakSettings toggleHiding];
             return nil;
@@ -37,6 +38,7 @@ __attribute__((constructor)) static void init(void) {
     TweakPrivacyPatchArgv();
     TweakPrivacyInstall();  // URLSession hooks must exist before Dia creates its sessions
     TweakPerformanceInstall();
+    TweakTabsInstall();     // must see Dia's browsers and tabs as they're created
     dispatch_async(dispatch_get_main_queue(), ^{
         TweakNavBarInstall();
         TweakSidebarInstall();

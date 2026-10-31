@@ -34,6 +34,8 @@ extern NSString *const TweakKeyNoBackgroundNetworking;
 extern NSString *const TweakKeyRendererLimit;
 extern NSString *const TweakKeyNewTabPalette;
 extern NSString *const TweakKeyCommandBarStyle;
+extern NSString *const TweakKeyExtraShortcuts;
+extern NSString *const TweakKeyProfileNumberMods;
 
 typedef NS_ENUM(NSInteger, TweakCommandBarStyle) {
     TweakCommandBarStyleOff = 0,       // Dia's defaults
@@ -82,3 +84,23 @@ TweakCommandBarStyle TweakCommandBarCurrentStyle(void);
 NSString *TweakPatchVersion(void);
 void TweakHealthWrite(void);
 void TweakKickCompanionOnQuit(void);
+
+// Extra shortcuts (Shortcuts.m): actions are {id, title, detail, run, default}.
+NSArray<NSDictionary *> *TweakShortcutActions(void);
+NSDictionary *TweakShortcutFor(NSString *actionId);        // nil if cleared
+void TweakSetShortcut(NSString *actionId, NSDictionary *shortcut);
+NSString *TweakShortcutDisplay(NSDictionary *shortcut);
+NSEventModifierFlags TweakProfileNumberMods(void);         // 0: off
+BOOL TweakShortcutsHandle(NSEvent *keyDown);
+// Click, then press a shortcut; saves it for the action.
+@interface TweakShortcutRecorder : NSButton
+@property (nonatomic, copy, readonly) NSString *actionId;
+- (instancetype)initWithActionId:(NSString *)actionId;
+- (void)sync;
+@end
+
+// Tab tidying (Tabs.m), for the window's active profile.
+void TweakTabsInstall(void);   // call before main()
+BOOL TweakTabsAvailable(void);
+void TweakTabsSortByDomain(NSWindow *window);
+void TweakTabsGroupByDomain(NSWindow *window);

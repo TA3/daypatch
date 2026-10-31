@@ -2,6 +2,13 @@
 
 Each release's notes come from its section here (the release workflow requires one).
 
+## 0.12.0
+
+- ⌨️ **Extra shortcuts** (Settings › DayPatch › Shortcuts, off by default, each one changeable): sort tabs by domain (⌃⌥S), group tabs by domain (⌃⌥G), next / previous profile (⌃⌥→ / ⌃⌥←), move the current tab to the next profile (⌃⌥⇧→), and switch to profile 1–9 (⌃1…⌃9).
+- 📏 The sidebar URL bar is as wide as the pinned tabs below it.
+- 🩹 The command bar's tab actions talk to Dia ✦ itself, never the original Dia while a passkey handoff has it open.
+- 🩹 Fixed a possible crash at launch when Dia's scripting support isn't ready yet.
+
 ## 0.11.1
 
 - 🔐 **Passkeys from Apple Passwords:** Dia ✦ menu › **Use Passkeys in Original Dia…** reopens your tabs in the original Dia so Touch ID passkeys work, with a **Back to Dia ✦** button to return. (Apple only allows them in Dia's own app.)

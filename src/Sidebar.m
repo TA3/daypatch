@@ -8,7 +8,7 @@
 static NSString *const kHeaderClass = @"TabSidebar.SidebarHeaderView";
 static const CGFloat kRowHeight = 40;   // pill 30 + 2 top + 8 bottom
 static const CGFloat kPillHeight = 30;
-static const CGFloat kSideInset = 10;
+static const CGFloat kSideInset = 6;    // same as the pinned tiles and tabs below it
 static const void *kBarKey = &kBarKey;
 static const void *kNavKey = &kNavKey;
 static const void *kGapKey = &kGapKey;

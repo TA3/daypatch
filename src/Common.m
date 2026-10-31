@@ -163,19 +163,25 @@ static NSString *scriptString(NSString *s) {
     return [[s stringByReplacingOccurrencesOfString:@"\\" withString:@"\\\\"] stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""];
 }
 
+// This app by path, not bundle ID: with another Dia running (the original during a
+// passkey handoff, or a second copy), the bundle ID could reach the wrong one.
+static NSString *selfApp(void) {
+    return [NSString stringWithFormat:@"application \"%@\"", scriptString(NSBundle.mainBundle.bundlePath)];
+}
+
 // Dia's scripting interface, called in-process (AppleEvents to self need no permission).
 void TweakOpenInNewTab(NSWindow *window, NSString *url) {
     if (!window.identifier || !url.length) return;
-    runScript([NSString stringWithFormat:@"tell application id \"company.thebrowser.dia\"\n"
+    runScript([NSString stringWithFormat:@"tell %@\n"
                "  tell (first window whose id is \"%@\") to make new tab with properties {URL:\"%@\"}\n"
-               "end tell", scriptString(window.identifier), scriptString(url)]);
+               "end tell", selfApp(), scriptString(window.identifier), scriptString(url)]);
 }
 
 void TweakFocusTab(NSString *windowId, NSString *tabId) {
     if (!windowId || !tabId) return;
-    runScript([NSString stringWithFormat:@"tell application id \"company.thebrowser.dia\"\n"
+    runScript([NSString stringWithFormat:@"tell %@\n"
                "  focus (first tab of (first window whose id is \"%@\") whose id is \"%@\")\n"
-               "end tell", scriptString(windowId), scriptString(tabId)]);
+               "end tell", selfApp(), scriptString(windowId), scriptString(tabId)]);
 }
 
 TweakCommandBarStyle TweakCommandBarCurrentStyle(void) {

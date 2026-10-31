@@ -15,12 +15,20 @@ static BOOL hasMethod(NSString *cls, SEL sel) {
     return c && class_getInstanceMethod(c, sel);
 }
 
+// Dia's scripting bridge; valueForKey: throws if the key isn't there (yet).
+static BOOL hasScriptingWindows(void) {
+    if ([NSApp respondsToSelector:NSSelectorFromString(@"appleScriptWindows")]) return YES;
+    @try { return [NSApp valueForKey:@"appleScriptWindows"] != nil; }
+    @catch (__unused NSException *e) { return NO; }
+}
+
 void TweakHealthWrite(void) {
     NSDictionary *checks = @{
         @"URL bar hiding": @(NSClassFromString(@"ContentPane.ContentPaneView") && NSClassFromString(@"NavigationBar.NavigationBarView")),
         @"Sidebar URL bar": @(TweakFindClass(@"_TtC10TabSidebar", @"SidebarContainerRootView") != nil),
         @"Settings pane": @(hasMethod(@"Preferences.SidebarListView", @selector(tableView:viewForTableColumn:row:))),
-        @"Command bar": @([NSApp respondsToSelector:NSSelectorFromString(@"appleScriptWindows")] || [NSApp valueForKey:@"appleScriptWindows"] != nil),
+        @"Command bar": @(hasScriptingWindows()),
+        @"Tab sorting": @(TweakTabsAvailable()),
         @"New tab without a tab": @(hasMethod(@"ArcWebContentsNavigationController", @selector(load:initiatorOrigin:transition:fromAddressBar:typedWithHttpScheme:))),
         @"Dia editor anchoring": @(TweakFindClass(@"_TtCC14DynamicPopover", @"RootView") != nil),
         @"Web engine blocking": @(hasMethod(@"ArcBrowserApplicationConfiguration", @selector(argv))),
