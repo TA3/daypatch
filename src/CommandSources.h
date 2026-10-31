@@ -29,9 +29,11 @@ typedef NS_ENUM(NSInteger, TweakItemKind) {
 - (void)prepareForWindow:(NSWindow *)window;
 // Ranked results for a query. History is queried off the main thread; `done` runs on main.
 - (void)query:(NSString *)text done:(void (^)(NSArray<TweakItem *> *items))done;
-// The host to complete inline for `text`, if any (e.g. "git" -> "github.com").
-- (NSString *)completionFor:(NSString *)text inItems:(NSArray<TweakItem *> *)items;
+// The site to complete inline for `text`, if any ("git" -> "github.com", "home" ->
+// "homeassistant.local:8123"), and in `url` the address it stands for, with its scheme.
+- (NSString *)completionFor:(NSString *)text inItems:(NSArray<TweakItem *> *)items url:(NSString **)url;
 - (NSString *)searchURLFor:(NSString *)text;
++ (void)learnSiteIcons;   // keep a copy of recent sites' favicons (Chromium drops them)
 - (NSImage *)faviconFor:(NSString *)url;  // cached; nil if unknown
 @end
 

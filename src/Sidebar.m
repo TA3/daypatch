@@ -95,9 +95,12 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     self.currentURL = u;
     NSString *text = @"";
     if (u.length && ![u isEqualToString:@"about:blank"]) {
-        NSString *host = [NSURL URLWithString:u].host;
+        NSURL *url = [NSURL URLWithString:u];
+        NSString *host = url.host;
         if (TweakSettings.sidebarShowsFullURL || !host.length) text = u;
         else text = [host hasPrefix:@"www."] ? [host substringFromIndex:4] : host;
+        // Dev servers and local services differ only by port: "localhost:3000", not "localhost".
+        if (!TweakSettings.sidebarShowsFullURL && host.length && url.port) text = [text stringByAppendingFormat:@":%@", url.port];
     }
     self.label.stringValue = text;
     NSString *symbol = !u.length ? @"magnifyingglass" : ([u hasPrefix:@"https://"] ? @"lock.fill" : @"globe");

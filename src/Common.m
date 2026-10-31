@@ -127,18 +127,57 @@ NSString *TweakURLForWindow(NSWindow *window) {
     } @catch (__unused NSException *e) { return nil; }
 }
 
+// "host" or "host:port" from the start of a scheme-less address, and its port ("" if none).
+static NSString *splitHost(NSString *s, NSString **port) {
+    NSString *authority = [[s componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"/?#"]].firstObject lowercaseString];
+    NSRange colon = [authority rangeOfString:@":" options:NSBackwardsSearch];
+    *port = @"";
+    if (colon.location == NSNotFound) return authority;
+    *port = [authority substringFromIndex:colon.location + 1];
+    return [authority substringToIndex:colon.location];
+}
+
+static BOOL isPort(NSString *p) {
+    return p.length && p.length <= 5 && [p rangeOfCharacterFromSet:NSCharacterSet.decimalDigitCharacterSet.invertedSet].location == NSNotFound;
+}
+
+// Hosts on this machine or the local network, which usually only speak http.
+static BOOL isLocalHost(NSString *host) {
+    if ([host isEqualToString:@"localhost"] || ![host containsString:@"."]) return YES;   // "localhost", "nas"
+    for (NSString *suffix in @[@".localhost", @".local", @".lan", @".home", @".home.arpa", @".internal", @".localdomain", @".test"])
+        if ([host hasSuffix:suffix]) return YES;
+    NSArray *octets = [host componentsSeparatedByString:@"."];
+    if (octets.count != 4) return NO;
+    for (NSString *o in octets) if (!isPort(o)) return NO;   // digits only
+    NSInteger a = [octets[0] integerValue], b = [octets[1] integerValue];
+    return a == 127 || a == 10 || (a == 192 && b == 168) || (a == 172 && b >= 16 && b <= 31) || (a == 169 && b == 254) || (a == 100 && b >= 64 && b <= 127);
+}
+
+BOOL TweakLooksLikeAddress(NSString *s) {
+    if (!s.length || [s rangeOfCharacterFromSet:NSCharacterSet.whitespaceCharacterSet].location != NSNotFound) return NO;
+    if ([s containsString:@"://"] || [s hasPrefix:@"about:"]) return YES;
+    NSString *port, *host = splitHost(s, &port);
+    if (port.length && !isPort(port)) return NO;
+    if (!host.length || [host hasPrefix:@"."] || [host hasSuffix:@"."]) return NO;
+    if ([host isEqualToString:@"localhost"] || port.length) return YES;   // "nas:5000"
+    NSArray *octets = [host componentsSeparatedByString:@"."];
+    if (octets.count == 4 && [[octets filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *o, id b) { return isPort(o) && o.length <= 3; }]] count] == 4)
+        return YES;   // "10.0.0.2"
+    NSRange dot = [host rangeOfString:@"." options:NSBackwardsSearch];
+    return dot.location != NSNotFound && host.length - dot.location - 1 >= 2;
+}
+
 NSString *TweakResolveInput(NSString *input) {
     NSString *s = [input stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
     if (!s.length) return nil;
-    NSRegularExpression *scheme = [NSRegularExpression regularExpressionWithPattern:@"^[a-zA-Z][a-zA-Z0-9+.-]*:(//)?[^\\s]*$" options:0 error:nil];
-    BOOL hasSpace = [s rangeOfCharacterFromSet:NSCharacterSet.whitespaceCharacterSet].location != NSNotFound;
-    if (!hasSpace && [scheme firstMatchInString:s options:0 range:NSMakeRange(0, s.length)] &&
-        ([s containsString:@"://"] || [s hasPrefix:@"about:"] || [s hasPrefix:@"chrome:"] || [s hasPrefix:@"file:"] || [s hasPrefix:@"mailto:"]))
-        return s;
-    NSString *host = [s componentsSeparatedByString:@"/"].firstObject;
-    BOOL local = [host hasPrefix:@"localhost"] || [host hasPrefix:@"127."] || [host hasSuffix:@".localhost"] || [host hasSuffix:@".test"];
-    if (!hasSpace && (local || ([host containsString:@"."] && ![host hasSuffix:@"."])))
-        return [(local ? @"http://" : @"https://") stringByAppendingString:s];
+    NSString *lower = s.lowercaseString;
+    if ([s containsString:@"://"] || [lower hasPrefix:@"about:"] || [lower hasPrefix:@"chrome:"] || [lower hasPrefix:@"file:"] ||
+        [lower hasPrefix:@"mailto:"] || [lower hasPrefix:@"data:"] || [lower hasPrefix:@"javascript:"])
+        if ([s rangeOfCharacterFromSet:NSCharacterSet.whitespaceCharacterSet].location == NSNotFound) return s;
+    if (TweakLooksLikeAddress(s)) {
+        NSString *port;
+        return [(isLocalHost(splitHost(s, &port)) ? @"http://" : @"https://") stringByAppendingString:s];
+    }
     NSString *template = @"https://www.google.com/search?q=%@";  // only reached for non-URL input
     NSMutableCharacterSet *allowed = [NSCharacterSet.URLQueryAllowedCharacterSet mutableCopy];
     [allowed removeCharactersInString:@"&=+?#"];

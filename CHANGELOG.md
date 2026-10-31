@@ -2,6 +2,12 @@
 
 Each release's notes come from its section here (the release workflow requires one).
 
+## 0.12.1
+
+- 🏠 **Local addresses work in the command bar.** Completing a site you've visited keeps its `http://` and port (`homeassistant.local:8123`, `localhost:3000`) instead of turning it into `https://homeassistant.local`. Typed addresses use `http://` for `localhost`, `.local`, `.lan`, `.home.arpa`, `.internal`, `.test`, private IPs and plain names like `nas:5000`, which also no longer start a search.
+- 🖼️ **Favicons while typing.** The command bar's field shows the icon of the site it will open, and DayPatch keeps its own copy of each site's favicon, since Dia's Chromium forgets them a day or two after a visit.
+- 🔢 The sidebar URL bar shows the port (`localhost:3000`).
+
 ## 0.12.0
 
 - ⌨️ **Extra shortcuts** (Settings › DayPatch › Shortcuts, off by default, each one changeable): sort tabs by domain (⌃⌥S), group tabs by domain (⌃⌥G), next / previous profile (⌃⌥→ / ⌃⌥←), move the current tab to the next profile (⌃⌥⇧→), and switch to profile 1–9 (⌃1…⌃9).

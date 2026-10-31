@@ -58,6 +58,7 @@ void TweakNavigateWindow(NSWindow *window, NSString *input);
 void TweakOpenInNewTab(NSWindow *window, NSString *url);
 void TweakFocusTab(NSString *windowId, NSString *tabId);
 NSString *TweakResolveInput(NSString *input);
+BOOL TweakLooksLikeAddress(NSString *input);   // "github.com", "localhost:3000", "nas:5000/x"
 
 // Modules.
 void TweakNavBarInstall(void);
@@ -77,6 +78,7 @@ void TweakPerformanceInstall(void);   // call before main()
 NSArray<NSString *> *TweakPerformanceSwitches(void);
 void TweakPaletteInstall(void);
 void TweakHandoffInstall(void);       // "Use Passkeys in Original Dia…"
+void TweakSiteIconsInstall(void);     // the command bar's own copy of site favicons
 BOOL TweakPaletteOpen(NSWindow *window);          // ⌘T: Dia's editor centred, commits open a new tab
 void TweakPaletteEditorClosed(NSWindow *window);
 BOOL TweakCommandBarShow(NSWindow *window, BOOL newTab);

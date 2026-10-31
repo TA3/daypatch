@@ -47,6 +47,7 @@ __attribute__((constructor)) static void init(void) {
         installKeyMonitor();
         showPatchedName();
         TweakHandoffInstall();
+        TweakSiteIconsInstall();
         [NSNotificationCenter.defaultCenter addObserverForName:NSApplicationDidBecomeActiveNotification object:nil queue:nil
                                                     usingBlock:^(NSNotification *n) { showPatchedName(); }];
         NSLog(@"[daypatch] installed");

@@ -37,13 +37,6 @@ static double matchScore(NSArray<NSString *> *words, NSString *title, NSString *
     return score;
 }
 
-static BOOL looksLikeURL(NSString *s) {
-    if ([s rangeOfCharacterFromSet:NSCharacterSet.whitespaceCharacterSet].location != NSNotFound) return NO;
-    if ([s containsString:@"://"] || [s hasPrefix:@"about:"] || [s hasPrefix:@"localhost"]) return YES;
-    NSString *host = [s componentsSeparatedByString:@"/"].firstObject;
-    NSRange dot = [host rangeOfString:@"." options:NSBackwardsSearch];
-    return dot.location != NSNotFound && dot.location > 0 && host.length - dot.location - 1 >= 2;
-}
 
 NSString *TweakShortcutString(NSMenuItem *item) {
     if (!item.keyEquivalent.length) return @"";
@@ -92,6 +85,8 @@ NSString *TweakShortcutString(NSMenuItem *item) {
     if (!_bookmarks) _bookmarks = [self loadBookmarks];
     if (!_searchTemplate) _searchTemplate = [self loadSearchTemplate];
     _activeURL = TweakURLForWindow(window);
+    [_icons removeAllObjects];   // drop remembered misses: sites may have icons by now
+    [TweakCommandSources learnSiteIcons];
 }
 
 // Every enabled, visible command in Dia's menus, including submenus.
@@ -378,7 +373,7 @@ static NSString *likeEscape(NSString *s) {
 
         // What was typed: as an address, or a search. Second place unless nothing else is strong.
         TweakItem *typed = [TweakItem new];
-        if (looksLikeURL(q)) {
+        if (TweakLooksLikeAddress(q)) {
             typed.kind = TweakItemURL;
             typed.url = TweakResolveInput(text);
             typed.title = text;
@@ -399,14 +394,21 @@ static NSString *likeEscape(NSString *s) {
     });
 }
 
-- (NSString *)completionFor:(NSString *)text inItems:(NSArray<TweakItem *> *)items {
+- (NSString *)completionFor:(NSString *)text inItems:(NSArray<TweakItem *> *)items url:(NSString **)url {
     NSString *q = text.lowercaseString;
     if (!q.length || [q rangeOfCharacterFromSet:NSCharacterSet.whitespaceCharacterSet].location != NSNotFound) return nil;
     for (TweakItem *it in items) {
         if (it.kind != TweakItemHistory && it.kind != TweakItemTab && it.kind != TweakItemBookmark) continue;
-        NSString *host = [NSURL URLWithString:it.url].host.lowercaseString;
-        if ([host hasPrefix:@"www."]) host = [host substringFromIndex:4];
-        if (host.length > q.length && [host hasPrefix:q]) return host;
+        NSURLComponents *c = [NSURLComponents componentsWithString:it.url];
+        NSString *host = c.host.lowercaseString;
+        if (!host.length || !c.scheme.length) break;
+        NSString *site = [host hasPrefix:@"www."] ? [host substringFromIndex:4] : host;
+        if (c.port) site = [site stringByAppendingFormat:@":%@", c.port];
+        if (site.length > q.length && [site hasPrefix:q]) {
+            // The site's root, keeping http and the port: "homeassistant.local" alone would become https.
+            *url = [NSString stringWithFormat:@"%@://%@%@/", c.scheme.lowercaseString, host, c.port ? [@":" stringByAppendingString:c.port.stringValue] : @""];
+            return site;
+        }
         break;  // only complete from the top-ranked page
     }
     return nil;
@@ -414,21 +416,73 @@ static NSString *likeEscape(NSString *s) {
 
 #pragma mark - Favicons
 
+// Dia's Chromium forgets which page used which favicon after a day or two, and drops
+// the images too. So DayPatch keeps its own copy of each site's icon, saved from
+// Chromium's database while the site was recent, and falls back to it.
+static NSString *siteKey(NSURL *u) {
+    NSString *host = u.host.lowercaseString;
+    if (!host.length) return nil;
+    if ([host hasPrefix:@"www."]) host = [host substringFromIndex:4];
+    return u.port ? [NSString stringWithFormat:@"%@_%@", host, u.port] : host;
+}
+
+static NSString *siteIconPath(NSString *site) {
+    NSString *dir = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/daypatch/site-icons"];
+    return [dir stringByAppendingPathComponent:[site stringByAppendingPathExtension:@"png"]];
+}
+
+static dispatch_queue_t learnQueue(void) {
+    static dispatch_queue_t q;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ q = dispatch_queue_create("daypatch.site-icons", DISPATCH_QUEUE_SERIAL); });
+    return q;
+}
+
+// Saves the largest current icon of every site Chromium still links (in the background).
++ (void)learnSiteIcons {
+    dispatch_async(learnQueue(), ^{
+        TweakCommandSources *s = [TweakCommandSources new];
+        NSMutableDictionary<NSString *, NSData *> *best = [NSMutableDictionary dictionary];
+        [s sqlite:@"Favicons" query:@"SELECT m.page_url, b.image_data FROM icon_mapping m JOIN favicon_bitmaps b ON b.icon_id = m.icon_id "
+                                     "WHERE length(b.image_data) > 0 ORDER BY m.id, b.width" bind:@[] row:^(sqlite3_stmt *st) {
+            NSString *key = siteKey([NSURL URLWithString:@((const char *)sqlite3_column_text(st, 0) ?: "")]);
+            if (key) best[key] = [NSData dataWithBytes:sqlite3_column_blob(st, 1) length:sqlite3_column_bytes(st, 1)];
+        }];
+        NSFileManager *fm = NSFileManager.defaultManager;
+        if (best.count) [fm createDirectoryAtPath:siteIconPath(@"x").stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
+        [best enumerateKeysAndObjectsUsingBlock:^(NSString *site, NSData *png, BOOL *stop) {
+            NSString *path = siteIconPath(site);
+            if (![[NSData dataWithContentsOfFile:path] isEqualToData:png]) [png writeToFile:path atomically:YES];
+        }];
+    });
+}
+
 - (NSImage *)faviconFor:(NSString *)url {
     if (!url.length) return nil;
     id cached = [_icons objectForKey:url];
     if (cached) return cached == NSNull.null ? nil : cached;
+    NSURL *u = [NSURL URLWithString:url];
+    NSString *host = u.port ? [NSString stringWithFormat:@"%@:%@", u.host, u.port] : u.host;
+    // The page itself, then any page on the same host, while Chromium still has them.
     __block NSData *png = nil;
-    // Exact page first, then any page on the same host.
-    NSString *host = [NSURL URLWithString:url].host;
-    NSString *sql = @"SELECT b.image_data FROM icon_mapping m JOIN favicon_bitmaps b ON b.icon_id = m.icon_id "
-                     "WHERE m.page_url = ?1 OR m.page_url LIKE ?2 ORDER BY (m.page_url = ?1) DESC, b.width DESC LIMIT 1";
-    [self sqlite:@"Favicons" query:sql bind:@[url, [NSString stringWithFormat:@"%%://%@/%%", host ?: @"-"]] row:^(sqlite3_stmt *s) {
+    [self sqlite:@"Favicons" query:@"SELECT b.image_data FROM icon_mapping m JOIN favicon_bitmaps b ON b.icon_id = m.icon_id "
+                                    "WHERE (m.page_url = ?1 OR m.page_url LIKE ?2) AND length(b.image_data) > 0 ORDER BY (m.page_url = ?1) DESC, b.width DESC LIMIT 1"
+            bind:@[url, [NSString stringWithFormat:@"%%://%@/%%", host ?: @"-"]] row:^(sqlite3_stmt *s) {
         png = [NSData dataWithBytes:sqlite3_column_blob(s, 0) length:sqlite3_column_bytes(s, 0)];
     }];
+    // Otherwise the icon saved from an earlier visit.
+    NSString *site = siteKey(u);
+    if (!png.length && site) png = [NSData dataWithContentsOfFile:siteIconPath(site)];
     NSImage *img = png.length ? [[NSImage alloc] initWithData:png] : nil;
     [_icons setObject:img ?: (id)NSNull.null forKey:url];
     return img;
 }
 
 @end
+
+void TweakSiteIconsInstall(void) {
+    // Chromium keeps a site's favicon only a day or two after the last visit: save often.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 60 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{ [TweakCommandSources learnSiteIcons]; });
+    NSTimer *t = [NSTimer scheduledTimerWithTimeInterval:15 * 60 repeats:YES block:^(__unused NSTimer *timer) { [TweakCommandSources learnSiteIcons]; }];
+    t.tolerance = 60;
+}

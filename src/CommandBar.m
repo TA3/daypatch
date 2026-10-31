@@ -197,6 +197,8 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
 @property (nonatomic) TweakCommandBarMode mode;
 @property (nonatomic, copy) NSString *typed;       // what the user typed (without inline completion)
 @property (nonatomic) BOOL suppressCompletion;     // after a deletion
+@property (nonatomic, copy) NSString *completionText;   // the field with the inline completion accepted
+@property (nonatomic, copy) NSString *completionURL;    // where that goes
 @end
 
 @implementation TweakCommandBar
@@ -285,6 +287,8 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
     }
     self.field.stringValue = initial;
     self.typed = initial;
+    self.completionText = nil;
+    self.completionURL = nil;
     [self layoutForRows:0];
     [window addChildWindow:self.panel ordered:NSWindowAbove];
     [self.panel makeKeyAndOrderFront:nil];
@@ -344,6 +348,14 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
 - (void)updateFieldIcon {
     TweakItem *top = self.results.selected >= 0 ? self.results.items[self.results.selected] : nil;
     NSImage *img = top ? [self iconForItem:top] : nil;
+    // While typing, show the site the field will open: its inline completion, or the address typed.
+    if (self.results.selected <= 0) {
+        NSString *field = self.field.currentEditor.string.lowercaseString ?: self.field.stringValue.lowercaseString;
+        NSString *site = self.completionURL && [field isEqualToString:self.completionText] ? self.completionURL
+                       : (TweakLooksLikeAddress(field) ? TweakResolveInput(field) : nil);
+        NSImage *favicon = site ? [self.sources faviconFor:site] : nil;
+        if (favicon) { self.fieldIcon.image = favicon; return; }
+    }
     if (!img || top.kind == TweakItemCommand || top.kind == TweakItemPage)
         img = [NSImage imageWithSystemSymbolName:top ? top.symbol : @"magnifyingglass" accessibilityDescription:nil];
     self.fieldIcon.image = img;
@@ -352,12 +364,16 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
 // Inline completion: "git" -> "git|hub.com" with the suffix selected.
 - (void)applyCompletionFrom:(NSArray<TweakItem *> *)items {
     if (self.suppressCompletion) return;
-    NSString *host = [self.sources completionFor:self.typed inItems:items];
+    NSString *url = nil;
+    NSString *host = [self.sources completionFor:self.typed inItems:items url:&url];
     NSText *editor = self.field.currentEditor;
     if (!host || !editor || ![editor.string isEqualToString:self.typed]) return;
+    self.completionText = host;
+    self.completionURL = url;
     NSString *suffix = [host substringFromIndex:self.typed.length];
     editor.string = [self.typed stringByAppendingString:suffix];
     editor.selectedRange = NSMakeRange(self.typed.length, suffix.length);
+    [self updateFieldIcon];
 }
 
 - (void)controlTextDidChange:(NSNotification *)n {
@@ -410,6 +426,8 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
         it.kind = TweakItemURL;
         it.url = TweakResolveInput(typedText);
     }
+    // An inline completion, accepted or not, goes where its page was (keeping http and the port).
+    BOOL completion = self.completionURL && [typedText.lowercaseString isEqualToString:self.completionText];
     switch (it.kind) {
         case TweakItemCommand: {
             NSMenuItem *m = it.menuItem;
@@ -423,6 +441,7 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
             NSString *url = it.url;
             // The URL row reflects what's in the field, including an accepted completion.
             if (it.kind == TweakItemURL && ![typedText isEqualToString:it.title]) url = TweakResolveInput(typedText);
+            if (it.kind == TweakItemURL && completion) url = self.completionURL;
             if (!url) return;
             if (self.mode == TweakCommandBarNewTab || forceNewTab) TweakOpenInNewTab(w, url);
             else TweakNavigateWindow(w, url);
