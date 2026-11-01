@@ -18,11 +18,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     func applicationDidFinishLaunching(_ n: Notification) {
         if Migration.run() { c.applyMode() }   // re-create the old background job under the new name
+        // DayPatch may have moved since the job or login item was written: point them here.
+        if (BackgroundAgent.isInstalled && !BackgroundAgent.pointsHere) || (LoginItem.isEnabled && !LoginItem.pointsHere) { c.applyMode() }
         Migration.trashOldApps()
         Migration.mergeSplitProfiles()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         let menu = NSMenu()
         menu.delegate = self
+        menu.autoenablesItems = false   // else isEnabled below is ignored
         statusItem.menu = menu
         c.onChange = { [weak self] in self?.refresh() }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
@@ -117,7 +120,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         menu.addItem(info(c.busy ?? c.statusLine))
         if let a = c.attention { menu.addItem(info("⚠︎ \(a)")) }
         menu.addItem(.separator())
-        menu.addItem(item("Open \(PatchEngine.appName)", "o") { $0.c.openPatchedDia() })
+        let open = item("Open \(PatchEngine.appName)", "o") { $0.c.openPatchedDia() }
+        open.isEnabled = c.busy == nil
+        menu.addItem(open)
         if let r = c.selfUpdate {
             menu.addItem(item("Update DayPatch to \(r.version)", "") { $0.c.installSelfUpdate(r) })
         }
@@ -134,6 +139,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private func header(_ s: String) -> NSMenuItem {
         let i = NSMenuItem(title: s, action: nil, keyEquivalent: "")
         i.attributedTitle = NSAttributedString(string: s, attributes: [.font: NSFont.boldSystemFont(ofSize: 13)])
+        i.isEnabled = false
         return i
     }
     private func info(_ s: String) -> NSMenuItem { let i = NSMenuItem(title: s, action: nil, keyEquivalent: ""); i.isEnabled = false; return i }
@@ -153,9 +159,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 let cliFlags: Set<String> = ["--status", "--patch", "--update-from", "--background-check", "--background-mode", "--make-icon", "--restore", "--mode", "--help"]
 if let flag = CommandLine.arguments.dropFirst().first, cliFlags.contains(flag) {
     let engine = PatchEngine(resources: Bundle.main.resourceURL!)
-    let done = DispatchSemaphore(value: 0)
+    var finished = false
     Task {
-        defer { done.signal() }
+        defer { DispatchQueue.main.async { finished = true } }
         do {
             switch flag {
             case "--status":
@@ -193,7 +199,8 @@ if let flag = CommandLine.arguments.dropFirst().first, cliFlags.contains(flag) {
             print("error: \(error.localizedDescription)")
         }
     }
-    done.wait()
+    // Run the main run loop rather than block it: NSWorkspace.runningApplications only updates while it runs.
+    while !finished { RunLoop.main.run(mode: .default, before: .distantFuture) }
     exit(0)
 }
 

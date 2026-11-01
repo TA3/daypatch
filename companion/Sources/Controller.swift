@@ -102,14 +102,16 @@ final class Controller: ObservableObject {
     var onChange: (() -> Void)?
 
     init() {
-        status = engine.status()
+        status = PatchStatus(state: .checking)
         health = Health.load()
+        refresh()
     }
 
     var attention: String? { attentionReason(status: status, lastError: lastError, health: health) }
 
     var statusLine: String {
         switch status.state {
+        case .checking: return "Checking…"
         case .diaMissing: return "Dia isn't installed in /Applications"
         case .notInstalled: return patchInPlace ? "Dia isn't patched yet" : "Not built yet"
         case .restored: return "Original Dia restored — patch to use \(PatchEngine.appName)"
@@ -118,10 +120,21 @@ final class Controller: ObservableObject {
         }
     }
 
-    func refresh() {
-        status = engine.status()
+    /// `status()` runs codesign (~0.3 s): compute it off the main thread, in order, then publish it.
+    private let statusQueue = DispatchQueue(label: "dev.ta3.daypatch.status")
+    func refresh(then: (@MainActor () -> Void)? = nil) {
         health = Health.load()
-        onChange?()
+        let engine = self.engine
+        statusQueue.async {
+            let s = engine.status()
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    self.status = s
+                    self.onChange?()
+                    then?()
+                }
+            }
+        }
     }
 
     // MARK: Modes
@@ -142,13 +155,15 @@ final class Controller: ObservableObject {
     // MARK: Automation
 
     func tick() {
-        refresh()
-        guard busy == nil else { return }
-        if Date().timeIntervalSince1970 - Prefs.lastSelfUpdateCheck > 24 * 3600 { checkSelfUpdate() }
-        if case .needsPatch = status.state, autoRepatch || pendingRepatch {
-            if PatchEngine.patchedIsRunning { pendingRepatch = true } else { repatch(auto: true) }
+        refresh { [self] in
+            guard busy == nil else { return }
+            if Date().timeIntervalSince1970 - Prefs.lastSelfUpdateCheck > 24 * 3600 { checkSelfUpdate() }
+            // After a failure, wait for the user (Patch, or dismissing the error) instead of retrying every tick.
+            if case .needsPatch = status.state, (autoRepatch && lastError == nil) || pendingRepatch {
+                if PatchEngine.patchedIsRunning { pendingRepatch = true } else { repatch(auto: true) }
+            }
+            onChange?()
         }
-        onChange?()
     }
 
     /// Dia updates itself. In place, Dia ✦ keeps Dia's own updater; this is the fallback:
@@ -237,6 +252,8 @@ final class Controller: ObservableObject {
                     if auto { notifyUser("\(PatchEngine.appName) is ready", "\(reason) — patched for Dia \(PatchEngine.version(PatchEngine.source) ?? "").") }
                 case .failure(PatchError.busy):
                     break
+                case .failure(PatchError.patchedRunning):
+                    self.pendingRepatch = true   // Dia started meanwhile: patch once it quits
                 case .failure(let e):
                     self.lastError = e.localizedDescription
                     notifyUser("Couldn't patch Dia", e.localizedDescription)
@@ -297,6 +314,7 @@ final class Controller: ObservableObject {
     }
 
     func openPatchedDia() {
+        guard busy == nil else { return }   // mid-patch, the old bundle is about to be replaced
         if !PatchEngine.isPatched(PatchEngine.destination) { repatch(); return }
         NSWorkspace.shared.openApplication(at: PatchEngine.destination, configuration: .init())
     }

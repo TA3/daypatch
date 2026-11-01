@@ -13,7 +13,8 @@ PUBLIC="$ROOT/companion/update-public-key.txt"
 
 mkdir -p "$KEY_DIR"
 chmod 700 "$KEY_DIR"
-swift "$ROOT/tools/update-key.swift" generate "$PRIVATE" > "$PUBLIC"
+PUB="$(swift "$ROOT/tools/update-key.swift" generate "$PRIVATE")"   # fails before touching $PUBLIC
+printf '%s\n' "$PUB" > "$PUBLIC"
 
 echo "Public key:  $PUBLIC (commit it)"
 echo "Private key: $PRIVATE (keep it secret; back it up somewhere safe)"

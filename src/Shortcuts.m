@@ -89,11 +89,13 @@ static NSDictionary *actionWithId(NSString *actionId) {
     return nil;
 }
 
-// The user's shortcut, the default if never set, or nil if cleared.
+// The user's shortcut, the default if never set or malformed, or nil if cleared.
 NSDictionary *TweakShortcutFor(NSString *actionId) {
     id saved = [NSUserDefaults.standardUserDefaults objectForKey:defaultsKey(actionId)];
-    if (!saved) return actionWithId(actionId)[@"default"];
-    return [saved isKindOfClass:NSDictionary.class] && [saved count] ? saved : nil;
+    if ([saved isKindOfClass:NSDictionary.class] && ![saved count]) return nil;
+    BOOL valid = [saved isKindOfClass:NSDictionary.class] && [saved[@"keyCode"] isKindOfClass:NSNumber.class]
+        && [saved[@"mods"] isKindOfClass:NSNumber.class] && [saved[@"chars"] isKindOfClass:NSString.class];
+    return valid ? saved : actionWithId(actionId)[@"default"];
 }
 
 void TweakSetShortcut(NSString *actionId, NSDictionary *shortcut) {
@@ -113,10 +115,12 @@ NSString *TweakShortcutDisplay(NSDictionary *s) {
     return out;
 }
 
-// Profile N is the modifiers (if any) plus the number key N.
+// Profile N is the modifiers (if any) plus the number key N; ⌥ alone would eat typed characters.
 NSEventModifierFlags TweakProfileNumberMods(void) {
     id v = [NSUserDefaults.standardUserDefaults objectForKey:TweakKeyProfileNumberMods];
-    return v ? [v unsignedIntegerValue] : NSEventModifierFlagControl;
+    NSEventModifierFlags m = [v respondsToSelector:@selector(integerValue)] ? (NSEventModifierFlags)[v integerValue] & kMods : 0;
+    BOOL valid = [v respondsToSelector:@selector(integerValue)] && (!m || (m & (NSEventModifierFlagControl | NSEventModifierFlagCommand)));
+    return valid ? m : NSEventModifierFlagControl;
 }
 
 BOOL TweakShortcutsHandle(NSEvent *e) {
@@ -169,7 +173,7 @@ static NSString *keyName(NSEvent *e) {
     self.font = [NSFont systemFontOfSize:NSFont.smallSystemFontSize];
     self.target = self;
     self.action = @selector(toggleRecording:);
-    self.toolTip = @"Click, then press a shortcut with ⌃, ⌥ or ⌘. Delete clears it, Esc cancels.";
+    self.toolTip = @"Click, then press a shortcut with ⌃ or ⌘. Delete clears it, Esc cancels.";
     [self.widthAnchor constraintGreaterThanOrEqualToConstant:96].active = YES;
     [self sync];
     return self;
@@ -185,6 +189,7 @@ static NSString *keyName(NSEvent *e) {
     gRecording = YES;
     __weak typeof(self) weakSelf = self;
     _monitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent *(NSEvent *e) {
+        if (!weakSelf || e.window != weakSelf.window) { [weakSelf stop]; return e; }
         [weakSelf record:e];
         return nil;
     }];
@@ -199,8 +204,8 @@ static NSString *keyName(NSEvent *e) {
         [self stop];
         return;
     }
-    BOOL functionKey = e.keyCode >= kVK_F1 && [keyName(e) hasPrefix:@"F"] && keyName(e).length > 1;
-    if (!(mods & (NSEventModifierFlagControl | NSEventModifierFlagOption | NSEventModifierFlagCommand)) && !functionKey) { NSBeep(); return; }
+    BOOL functionKey = [keyName(e) hasPrefix:@"F"] && keyName(e).length > 1;
+    if (!(mods & (NSEventModifierFlagControl | NSEventModifierFlagCommand)) && !functionKey) { NSBeep(); return; }
     TweakSetShortcut(self.actionId, shortcut(e.keyCode, mods, keyName(e)));
     [self stop];
 }
@@ -210,6 +215,12 @@ static NSString *keyName(NSEvent *e) {
     _monitor = nil;
     gRecording = NO;
     [self sync];
+}
+
+- (void)dealloc {
+    if (!_monitor) return;
+    [NSEvent removeMonitor:_monitor];
+    gRecording = NO;
 }
 
 - (void)viewDidMoveToWindow {

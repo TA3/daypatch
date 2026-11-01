@@ -12,6 +12,7 @@ static const CGFloat kSideInset = 6;    // same as the pinned tiles and tabs bel
 static const void *kBarKey = &kBarKey;
 static const void *kNavKey = &kNavKey;
 static const void *kGapKey = &kGapKey;
+static void noteVisibility(NSView *c);
 
 static void (*origLayout)(id, SEL);
 static NSHashTable<NSView *> *gContainers;
@@ -169,9 +170,12 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     [self.watched addObject:w];
     [w addObserver:self forKeyPath:@"title" options:0 context:NULL];
     __weak typeof(self) weakSelf = self;
-    __unsafe_unretained NSWindow *unretained = w;
-    [NSNotificationCenter.defaultCenter addObserverForName:NSWindowWillCloseNotification object:w queue:nil usingBlock:^(__unused NSNotification *n) {
-        [unretained removeObserver:weakSelf forKeyPath:@"title"];
+    __weak NSWindow *weakWindow = w;
+    __block id token = [NSNotificationCenter.defaultCenter addObserverForName:NSWindowWillCloseNotification object:w queue:nil usingBlock:^(__unused NSNotification *n) {
+        [weakWindow removeObserver:weakSelf forKeyPath:@"title"];
+        [weakSelf.watched removeObject:weakWindow];
+        [NSNotificationCenter.defaultCenter removeObserver:token];
+        token = nil;  // breaks the token -> block -> token cycle
     }];
 }
 - (void)observeValueForKeyPath:(NSString *)k ofObject:(id)o change:(NSDictionary *)c context:(void *)ctx {
@@ -205,7 +209,8 @@ static void applyContainer(NSView *c) {
         objc_setAssociatedObject(c, kGapKey, @(H - NSMaxY(body.frame)), OBJC_ASSOCIATION_RETAIN);
     CGFloat gap = [objc_getAssociatedObject(c, kGapKey) doubleValue];
 
-    BOOL on = TweakSettings.urlBarMode == TweakURLBarModeSidebar && !c.isHiddenOrHasHiddenAncestor;
+    // Attached even while the sidebar is collapsed, so the top bar stays hidden then.
+    BOOL on = TweakSettings.urlBarMode == TweakURLBarModeSidebar;
     TweakSidebarURLBar *bar = barFor(c);
     if (on && !bar) {
         bar = [[TweakSidebarURLBar alloc] initWithFrame:NSZeroRect];
@@ -240,17 +245,23 @@ static void applyContainer(NSView *c) {
     }
 }
 
-static void hookedLayout(NSView *self, SEL _cmd) {
-    origLayout(self, _cmd);
-    [gContainers addObject:self];
-    BOOL had = barFor(self).superview != nil;
-    applyContainer(self);
-    // The top bar's visibility depends on whether this window has a sidebar URL bar.
-    // Deferred: we're inside a layout pass.
-    if (had != (barFor(self).superview != nil))
+// Adds or removes the bar; if that changed, the top bar re-evaluates its visibility
+// (it depends on whether this window has a sidebar URL bar). Deferred: callers may be
+// inside a layout pass.
+static void reapplyContainer(NSView *c) {
+    BOOL had = barFor(c).superview != nil;
+    applyContainer(c);
+    if (had != (barFor(c).superview != nil))
         dispatch_async(dispatch_get_main_queue(), ^{
             [NSNotificationCenter.defaultCenter postNotificationName:TweakSettingsDidChangeNotification object:nil];
         });
+}
+
+static void hookedLayout(NSView *self, SEL _cmd) {
+    origLayout(self, _cmd);
+    [gContainers addObject:self];
+    reapplyContainer(self);
+    noteVisibility(self);
 }
 
 static TweakSidebarURLBar *visibleBar(NSWindow *window) {
@@ -261,7 +272,29 @@ static TweakSidebarURLBar *visibleBar(NSWindow *window) {
     return nil;
 }
 
-BOOL TweakSidebarHasURLBar(NSWindow *window) { return visibleBar(window) != nil; }
+// Whether the top bar should give way: true while the window's sidebar has the bar,
+// also when the sidebar is collapsed (Arc-like: no top bar either way), unless the
+// user wants Dia's bar back while the sidebar is hidden.
+BOOL TweakSidebarHasURLBar(NSWindow *window) {
+    if (TweakSettings.topBarWhenSidebarHidden) return visibleBar(window) != nil;
+    for (NSView *c in gContainers.allObjects)
+        if (c.window == window && barFor(c).superview) return YES;
+    return NO;
+}
+
+// With the top bar shown while the sidebar is hidden, it follows the sidebar sliding
+// in and out: re-evaluate whenever a container's visibility flips.
+static const void *kShownKey = &kShownKey;
+static void noteVisibility(NSView *c) {
+    if (!TweakSettings.topBarWhenSidebarHidden) return;
+    BOOL shown = !c.isHiddenOrHasHiddenAncestor && NSWidth(c.frame) > 40;
+    NSNumber *was = objc_getAssociatedObject(c, kShownKey);
+    objc_setAssociatedObject(c, kShownKey, @(shown), OBJC_ASSOCIATION_RETAIN);
+    if (was && was.boolValue != shown)
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [NSNotificationCenter.defaultCenter postNotificationName:TweakSettingsDidChangeNotification object:nil];
+        });
+}
 
 BOOL TweakSidebarFocusURLBar(NSWindow *window) { return [visibleBar(window) openEditor]; }
 
@@ -272,8 +305,16 @@ void TweakSidebarInstall(void) {
     origLayout = (void *)TweakHook(cls, @selector(layout), (IMP)hookedLayout);
     // Refresh on navigation-ish events: Dia's window title follows the active tab's
     // page title, and switching windows/tabs changes it too. A slow timer covers
-    // pages that change URL without changing title.
-    void (^refreshAll)(void) = ^{ for (NSView *c in gContainers.allObjects) [barFor(c) refresh]; };
+    // pages that change URL without changing title. Also attaches a bar the container's
+    // layout couldn't (its header or body not there yet): nothing may lay it out again.
+    // Add-only, so a transient hide never flips back to the top bar.
+    void (^refreshAll)(void) = ^{
+        for (NSView *c in gContainers.allObjects) {
+            if (!barFor(c).superview) reapplyContainer(c);
+            noteVisibility(c);
+            [barFor(c) refresh];
+        }
+    };
     gTitleObserver = [TweakTitleObserver new];
     gTitleObserver.onChange = refreshAll;
     for (NSNotificationName n in @[NSWindowDidBecomeKeyNotification, NSWindowDidBecomeMainNotification, NSWindowDidUpdateNotification])

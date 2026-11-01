@@ -33,14 +33,18 @@ enum SelfUpdater {
     }
     static var currentVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0" }
 
-    /// "1.10.0" > "1.9.2"
+    /// "1.10.0" > "1.9.2" > "1.9.2-beta": each part counts by its leading digits; a suffix marks a pre-release.
     static func isNewer(_ a: String, than b: String) -> Bool {
-        let x = a.split(separator: ".").map { Int($0) ?? 0 }, y = b.split(separator: ".").map { Int($0) ?? 0 }
+        func parse(_ v: String) -> (parts: [Int], pre: Bool) {
+            let core = v.prefix { $0.isASCII && ($0.isNumber || $0 == ".") }
+            return (core.split(separator: ".").map { Int($0) ?? 0 }, core.count < v.count)
+        }
+        let (x, xPre) = parse(a), (y, yPre) = parse(b)
         for i in 0..<max(x.count, y.count) {
             let l = i < x.count ? x[i] : 0, r = i < y.count ? y[i] : 0
             if l != r { return l > r }
         }
-        return false
+        return yPre && !xPre
     }
 
     /// The latest release if it's newer than this build, else nil.
@@ -92,10 +96,12 @@ enum SelfUpdater {
 
         // Swap: the running copy goes to the Trash (recoverable), the new one takes its place.
         let current = Bundle.main.bundleURL
+        var trashed: NSURL?
         do {
-            try fm.trashItem(at: current, resultingItemURL: nil)
+            try fm.trashItem(at: current, resultingItemURL: &trashed)
             try fm.moveItem(at: app, to: current)
         } catch {
+            if let trashed { try? fm.moveItem(at: trashed as URL, to: current) }   // put the running copy back
             throw SelfUpdateError.install(error.localizedDescription)
         }
     }
@@ -104,8 +110,9 @@ enum SelfUpdater {
     static func relaunch(arguments: [String] = []) {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/sh")
-        let args = arguments.isEmpty ? "" : " --args " + arguments.joined(separator: " ")
-        p.arguments = ["-c", "sleep 1; /usr/bin/open \"\(Bundle.main.bundlePath)\"\(args)"]
+        // Path and arguments go in as positional parameters, never into the script text.
+        p.arguments = ["-c", #"sleep 1; app="$1"; shift; if [ $# -gt 0 ]; then exec /usr/bin/open "$app" --args "$@"; else exec /usr/bin/open "$app"; fi"#,
+                       "sh", Bundle.main.bundlePath] + arguments
         try? p.run()
     }
 

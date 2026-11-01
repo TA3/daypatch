@@ -171,6 +171,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
         [self rowWithTitle:@"⌘L opens the sidebar URL bar" detail:@"With Dia's editor as the command bar: open it at the sidebar instead of the top." control:[self switchForKey:TweakKeyCmdLFocusesSidebar] key:TweakKeyCmdLFocusesSidebar],
         [self rowWithTitle:@"Show full URL" detail:@"Otherwise only the site's domain is shown." control:[self switchForKey:TweakKeySidebarFullURL] key:TweakKeySidebarFullURL],
         [self rowWithTitle:@"Back, forward and reload buttons" detail:@"Shown next to the window controls." control:[self switchForKey:TweakKeySidebarNavButtons] key:TweakKeySidebarNavButtons],
+        [self rowWithTitle:@"Top bar while the sidebar is hidden" detail:@"Shows Dia's bar when the sidebar is collapsed, as in focus mode. Off, like Arc: no URL bar until the sidebar is back." control:[self switchForKey:TweakKeyTopBarWhenSidebarHidden] key:TweakKeyTopBarWhenSidebarHidden],
     ]];
     _recorders = [NSMutableArray array];
     NSMutableArray *shortcutRows = [NSMutableArray arrayWithObject:
@@ -184,7 +185,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     _profileNumberPopup.controlSize = NSControlSizeSmall;
     _profileNumberPopup.font = [NSFont systemFontOfSize:NSFont.smallSystemFontSize];
     NSEventModifierFlags ctrl = NSEventModifierFlagControl, opt = NSEventModifierFlagOption, cmd = NSEventModifierFlagCommand;
-    for (NSArray *m in @[@[@"⌃1 … ⌃9", @(ctrl)], @[@"⌥1 … ⌥9", @(opt)], @[@"⌃⌥1 … ⌃⌥9", @(ctrl | opt)], @[@"⌃⌘1 … ⌃⌘9", @(ctrl | cmd)], @[@"None", @0]]) {
+    for (NSArray *m in @[@[@"⌃1 … ⌃9", @(ctrl)], @[@"⌃⌥1 … ⌃⌥9", @(ctrl | opt)], @[@"⌃⌘1 … ⌃⌘9", @(ctrl | cmd)], @[@"None", @0]]) {
         [_profileNumberPopup addItemWithTitle:m[0]];
         _profileNumberPopup.lastItem.tag = [m[1] integerValue];
     }
@@ -303,7 +304,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     [self setRow:TweakKeyDisableOnDeviceAI enabled:[TweakSettings boolForKey:TweakKeyHideAI]];
     for (NSString *key in self.switches) self.switches[key].state = [TweakSettings boolForKey:key] ? NSControlStateValueOn : NSControlStateValueOff;
     [self setRow:TweakKeyRevealOnHover enabled:mode != TweakURLBarModeTop];
-    for (NSString *k in @[TweakKeyCmdLFocusesSidebar, TweakKeySidebarFullURL, TweakKeySidebarNavButtons])
+    for (NSString *k in @[TweakKeyCmdLFocusesSidebar, TweakKeySidebarFullURL, TweakKeySidebarNavButtons, TweakKeyTopBarWhenSidebarHidden])
         [self setRow:k enabled:mode == TweakURLBarModeSidebar];
     BOOL shortcuts = [TweakSettings boolForKey:TweakKeyExtraShortcuts];
     for (TweakShortcutRecorder *r in self.recorders) {
@@ -442,9 +443,11 @@ static void hookedSelectionDidChange(id self, SEL _cmd, NSNotification *n) {
 void TweakPreferencesInstall(void) {
     Class cls = NSClassFromString(kListClass);
     if (!cls) { NSLog(@"[daypatch] %@ not found; settings pane inactive", kListClass); return; }
-    origNumberOfRows = (void *)TweakHook(cls, @selector(numberOfRowsInTableView:), (IMP)hookedNumberOfRows);
-    origViewForRow = (void *)TweakHook(cls, @selector(tableView:viewForTableColumn:row:), (IMP)hookedViewForRow);
-    origSelectionDidChange = (void *)TweakHook(cls, @selector(tableViewSelectionDidChange:), (IMP)hookedSelectionDidChange);
-    if (!origNumberOfRows || !origViewForRow || !origSelectionDidChange)
-        NSLog(@"[daypatch] settings hooks incomplete");
+    SEL sels[] = {@selector(numberOfRowsInTableView:), @selector(tableView:viewForTableColumn:row:), @selector(tableViewSelectionDidChange:)};
+    // All or nothing: an extra row without its cell and selection hooks crashes Dia's Settings.
+    for (int i = 0; i < 3; i++)
+        if (!class_getInstanceMethod(cls, sels[i])) { NSLog(@"[daypatch] %@ lacks %@; settings pane inactive", kListClass, NSStringFromSelector(sels[i])); return; }
+    origNumberOfRows = (void *)TweakHook(cls, sels[0], (IMP)hookedNumberOfRows);
+    origViewForRow = (void *)TweakHook(cls, sels[1], (IMP)hookedViewForRow);
+    origSelectionDidChange = (void *)TweakHook(cls, sels[2], (IMP)hookedSelectionDidChange);
 }

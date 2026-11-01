@@ -65,6 +65,7 @@ BOOL TweakTabsAvailable(void) {
 @property (nonatomic, strong) NSNumber *sessionId;
 @property (nonatomic, copy) NSString *url;
 @property (nonatomic, copy) NSString *host;
+@property (nonatomic, strong) id browser;
 @end
 @implementation TweakTab
 @end
@@ -78,6 +79,7 @@ static NSString *urlString(id url) {
 // label for two-letter country domains like "bbc.co.uk".
 static NSString *hostOf(NSString *url) {
     NSString *h = [NSURL URLWithString:url].host.lowercaseString ?: @"";
+    if ([h hasSuffix:@"."]) h = [h substringToIndex:h.length - 1];
     NSArray *labels = [h componentsSeparatedByString:@"."];
     if (labels.count < 3 || [h rangeOfCharacterFromSet:NSCharacterSet.letterCharacterSet].location == NSNotFound) return h;
     NSUInteger keep = 2;
@@ -93,17 +95,21 @@ typedef void (^TweakTabsBlock)(id browser, id delegate, NSArray<TweakTab *> *loo
 static void withLooseTabs(NSWindow *window, TweakTabsBlock body) {
     // Scripting lists the active profile's tabs: count their unpinned URLs.
     NSCountedSet *wanted = [NSCountedSet set];
+    NSMutableSet *pinned = [NSMutableSet set];
     @try {
         for (id sw in [NSApp valueForKey:@"appleScriptWindows"]) {
             if (![[sw valueForKey:@"windowId"] isEqual:window.identifier]) continue;
             for (id t in [sw valueForKey:@"appleScriptTabs"]) {
                 NSString *url = urlString([t valueForKey:@"URL"]);
-                if (url && ![[t valueForKey:@"isPinned"] boolValue]) [wanted addObject:url];
+                if (url) [[[t valueForKey:@"isPinned"] boolValue] ? pinned : wanted addObject:url];
             }
         }
     } @catch (__unused NSException *e) { return; }
 
-    NSMapTable<id, NSMutableArray<TweakTab *> *> *byBrowser = [NSMapTable strongToStrongObjectsMapTable];
+    // This window's web contents. A URL also open in a pinned tab, another profile or any
+    // other web contents can't be told apart, so it is left alone.
+    NSMutableArray<TweakTab *> *candidates = [NSMutableArray array];
+    NSCountedSet *found = [NSCountedSet set];
     for (id wc in gOwners.keyEnumerator.allObjects) {
         id browser = [gOwners objectForKey:wc];
         NSString *url = nil;
@@ -111,17 +117,24 @@ static void withLooseTabs(NSWindow *window, TweakTabsBlock body) {
         @try {
             if (![[browser valueForKey:@"windowIdentifier"] isEqual:window.identifier]) continue;
             url = urlString([wc valueForKey:@"url"]);
+            if (url) [found addObject:url];
             sid = ((NSInteger (*)(id, SEL))objc_msgSend)([wc valueForKey:@"sessionId"], @selector(identifier));
         } @catch (__unused NSException *e) { continue; }
-        if (!url || sid < 0 || ![wanted countForObject:url]) continue;
-        [wanted removeObject:url];
+        if (!url || sid < 0) continue;
         TweakTab *t = [TweakTab new];
         t.sessionId = @(sid);
         t.url = url;
         t.host = hostOf(url);
-        NSMutableArray *list = [byBrowser objectForKey:browser] ?: [NSMutableArray array];
+        t.browser = browser;
+        [candidates addObject:t];
+    }
+
+    NSMapTable<id, NSMutableArray<TweakTab *> *> *byBrowser = [NSMapTable strongToStrongObjectsMapTable];
+    for (TweakTab *t in candidates) {
+        if ([pinned containsObject:t.url] || [found countForObject:t.url] != [wanted countForObject:t.url]) continue;
+        NSMutableArray *list = [byBrowser objectForKey:t.browser] ?: [NSMutableArray array];
         [list addObject:t];
-        [byBrowser setObject:list forKey:browser];
+        [byBrowser setObject:list forKey:t.browser];
     }
 
     for (id browser in byBrowser) {

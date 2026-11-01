@@ -32,7 +32,7 @@ static id hookedLoad(id self, SEL _cmd, NSURL *url, id origin, long transition, 
 #pragma mark - Opening
 
 BOOL TweakPaletteOpen(NSWindow *window) {
-    if (!paletteEnabled() || !window) return NO;
+    if (!paletteEnabled() || !window || !origLoad) return NO;
     NSView *frame = window.contentView.superview ?: window.contentView;
     NSRect b = frame.bounds;
     // Centred, about a fifth of the way down: where Arc puts its command bar.
@@ -71,7 +71,9 @@ static void hookedNewTabMouseDown(NSView *self, SEL _cmd, NSEvent *e) {
 void TweakPaletteInstall(void) {
     Class nav = NSClassFromString(@"ArcWebContentsNavigationController");
     SEL loadSel = @selector(load:initiatorOrigin:transition:fromAddressBar:typedWithHttpScheme:);
-    if (nav && class_getInstanceMethod(nav, loadSel)) origLoad = (void *)TweakHook(nav, loadSel, (IMP)hookedLoad);
+    // Without DynamicPopover the editor's close can't be seen, and the next address-bar load would be taken for the palette.
+    if (!TweakFindClass(@"_TtCC14DynamicPopover", @"RootView")) NSLog(@"[daypatch] DynamicPopover root not found; new-tab palette inactive");
+    else if (nav && class_getInstanceMethod(nav, loadSel)) origLoad = (void *)TweakHook(nav, loadSel, (IMP)hookedLoad);
     else NSLog(@"[daypatch] navigation load not found; new-tab palette inactive");
 
     Class row = NSClassFromString(@"TabList.NewTabCellView");

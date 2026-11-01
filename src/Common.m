@@ -9,6 +9,7 @@ NSString *const TweakKeyRevealOnHover = @"daypatch.revealOnHover";
 NSString *const TweakKeyCmdLFocusesSidebar = @"daypatch.cmdLFocusesSidebar";
 NSString *const TweakKeySidebarFullURL = @"daypatch.sidebarShowsFullURL";
 NSString *const TweakKeySidebarNavButtons = @"daypatch.sidebarShowsNavButtons";
+NSString *const TweakKeyTopBarWhenSidebarHidden = @"daypatch.topBarWhenSidebarHidden";
 
 @implementation TweakSettings
 
@@ -61,6 +62,7 @@ NSString *const TweakKeySidebarNavButtons = @"daypatch.sidebarShowsNavButtons";
 + (BOOL)cmdLFocusesSidebar { return [self.d boolForKey:TweakKeyCmdLFocusesSidebar]; }
 + (BOOL)sidebarShowsFullURL { return [self.d boolForKey:TweakKeySidebarFullURL]; }
 + (BOOL)sidebarShowsNavButtons { return [self.d boolForKey:TweakKeySidebarNavButtons]; }
++ (BOOL)topBarWhenSidebarHidden { return [self.d boolForKey:TweakKeyTopBarWhenSidebarHidden]; }
 
 + (BOOL)boolForKey:(NSString *)key { return [self.d boolForKey:key]; }
 + (void)setBool:(BOOL)value forKey:(NSString *)key { [self.d setBool:value forKey:key]; [self changed]; }
@@ -128,10 +130,19 @@ NSString *TweakURLForWindow(NSWindow *window) {
 }
 
 // "host" or "host:port" from the start of a scheme-less address, and its port ("" if none).
+// IPv6 hosts keep their brackets: "[::1]:8080" → "[::1]", "8080".
 static NSString *splitHost(NSString *s, NSString **port) {
     NSString *authority = [[s componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"/?#"]].firstObject lowercaseString];
-    NSRange colon = [authority rangeOfString:@":" options:NSBackwardsSearch];
     *port = @"";
+    if ([authority hasPrefix:@"["]) {
+        NSRange close = [authority rangeOfString:@"]"];
+        if (close.location == NSNotFound) return authority;
+        NSString *rest = [authority substringFromIndex:NSMaxRange(close)];
+        if ([rest hasPrefix:@":"]) *port = [rest substringFromIndex:1];
+        else if (rest.length) *port = rest;   // junk after "]": not a valid port
+        return [authority substringToIndex:NSMaxRange(close)];
+    }
+    NSRange colon = [authority rangeOfString:@":" options:NSBackwardsSearch];
     if (colon.location == NSNotFound) return authority;
     *port = [authority substringFromIndex:colon.location + 1];
     return [authority substringToIndex:colon.location];
@@ -143,6 +154,7 @@ static BOOL isPort(NSString *p) {
 
 // Hosts on this machine or the local network, which usually only speak http.
 static BOOL isLocalHost(NSString *host) {
+    if ([host hasPrefix:@"["]) return YES;   // IPv6 literal, e.g. [::1]
     if ([host isEqualToString:@"localhost"] || ![host containsString:@"."]) return YES;   // "localhost", "nas"
     for (NSString *suffix in @[@".localhost", @".local", @".lan", @".home", @".home.arpa", @".internal", @".localdomain", @".test"])
         if ([host hasSuffix:suffix]) return YES;
@@ -153,11 +165,24 @@ static BOOL isLocalHost(NSString *host) {
     return a == 127 || a == 10 || (a == 192 && b == 168) || (a == 172 && b >= 16 && b <= 31) || (a == 169 && b == 254) || (a == 100 && b >= 64 && b <= 127);
 }
 
+// "https://x", "about:blank", "view-source:…": typed with a scheme, opened as is.
+static BOOL hasScheme(NSString *s) {
+    static NSRegularExpression *scheme;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ scheme = [NSRegularExpression regularExpressionWithPattern:@"^([a-zA-Z][a-zA-Z0-9+.-]*):(//)?\\S*$" options:0 error:nil]; });
+    NSTextCheckingResult *m = [scheme firstMatchInString:s options:0 range:NSMakeRange(0, s.length)];
+    if (!m) return NO;
+    if ([m rangeAtIndex:2].location != NSNotFound) return YES;
+    return [@[@"about", @"chrome", @"file", @"mailto", @"javascript", @"data", @"blob", @"view-source", @"tel"]
+               containsObject:[s substringWithRange:[m rangeAtIndex:1]].lowercaseString];
+}
+
 BOOL TweakLooksLikeAddress(NSString *s) {
     if (!s.length || [s rangeOfCharacterFromSet:NSCharacterSet.whitespaceCharacterSet].location != NSNotFound) return NO;
-    if ([s containsString:@"://"] || [s hasPrefix:@"about:"]) return YES;
+    if (hasScheme(s)) return YES;
     NSString *port, *host = splitHost(s, &port);
     if (port.length && !isPort(port)) return NO;
+    if ([host hasPrefix:@"["]) return [host hasSuffix:@"]"] && host.length > 2;   // "[::1]"
     if (!host.length || [host hasPrefix:@"."] || [host hasSuffix:@"."]) return NO;
     if ([host isEqualToString:@"localhost"] || port.length) return YES;   // "nas:5000"
     NSArray *octets = [host componentsSeparatedByString:@"."];
@@ -167,27 +192,28 @@ BOOL TweakLooksLikeAddress(NSString *s) {
     return dot.location != NSNotFound && host.length - dot.location - 1 >= 2;
 }
 
-NSString *TweakResolveInput(NSString *input) {
+NSString *TweakResolveURL(NSString *input) {
     NSString *s = [input stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-    if (!s.length) return nil;
-    NSString *lower = s.lowercaseString;
-    if ([s containsString:@"://"] || [lower hasPrefix:@"about:"] || [lower hasPrefix:@"chrome:"] || [lower hasPrefix:@"file:"] ||
-        [lower hasPrefix:@"mailto:"] || [lower hasPrefix:@"data:"] || [lower hasPrefix:@"javascript:"])
-        if ([s rangeOfCharacterFromSet:NSCharacterSet.whitespaceCharacterSet].location == NSNotFound) return s;
-    if (TweakLooksLikeAddress(s)) {
-        NSString *port;
-        return [(isLocalHost(splitHost(s, &port)) ? @"http://" : @"https://") stringByAppendingString:s];
-    }
-    NSString *template = @"https://www.google.com/search?q=%@";  // only reached for non-URL input
-    NSMutableCharacterSet *allowed = [NSCharacterSet.URLQueryAllowedCharacterSet mutableCopy];
-    [allowed removeCharactersInString:@"&=+?#"];
-    return [NSString stringWithFormat:template, [s stringByAddingPercentEncodingWithAllowedCharacters:allowed]];
+    if (!TweakLooksLikeAddress(s)) return nil;
+    if (hasScheme(s)) return s;
+    NSString *port;
+    return [(isLocalHost(splitHost(s, &port)) ? @"http://" : @"https://") stringByAppendingString:s];
 }
 
-void TweakNavigateWindow(NSWindow *window, NSString *input) {
-    NSString *url = TweakResolveInput(input);
+NSString *TweakResolveInput(NSString *input) {
+    NSString *url = TweakResolveURL(input);
+    if (url) return url;
+    NSString *s = [input stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    if (!s.length) return nil;
+    NSMutableCharacterSet *allowed = [NSCharacterSet.URLQueryAllowedCharacterSet mutableCopy];
+    [allowed removeCharactersInString:@"&=+?#"];
+    NSString *q = [s stringByAddingPercentEncodingWithAllowedCharacters:allowed];  // nil for a lone UTF-16 surrogate
+    return q ? [@"https://www.google.com/search?q=" stringByAppendingString:q] : nil;
+}
+
+void TweakNavigateWindow(NSWindow *window, NSString *url) {
     id tab = TweakActiveTabForWindow(window);
-    if (!url || !tab) return;
+    if (!url.length || !tab) return;
     @try { [tab setValue:url forKey:@"URL"]; }
     @catch (NSException *e) { NSLog(@"[daypatch] navigate failed: %@", e); }
 }

@@ -43,8 +43,12 @@ enum Migration {
     /// Dia names its profile folder after CFBundleName, which DayPatch used to change
     /// ("Patched Dia", then "Dia ✦" in 0.11.0), so the patched app got a profile of its
     /// own. If one of those is newer than Dia's, it becomes Dia's profile again; the
-    /// older one is kept in daypatch/profile-backups. Only runs while no Dia is running.
+    /// older one is kept in daypatch/profile-backups. Runs once, the first time no Dia is
+    /// running: later, a stale "Dia ✦" profile (made by an old patched app) must not win.
     static func mergeSplitProfiles(diaRunning: Bool = NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == "company.thebrowser.dia" }) {
+        let d = UserDefaults.standard
+        guard !diaRunning, !d.bool(forKey: "profilesMerged") else { return }
+        d.set(true, forKey: "profilesMerged")
         let fm = FileManager.default
         let support = home.appendingPathComponent("Library/Application Support")
         let main = support.appendingPathComponent("Dia")
@@ -55,7 +59,6 @@ enum Migration {
             .compactMap { dir in lastUsed(dir).map { (dir, $0) } }
             .max { $0.1 < $1.1 }
         guard let (newest, date) = split, date > (lastUsed(main) ?? .distantPast) else { return }
-        guard !diaRunning else { return }
         let backups = PatchEngine.supportDir.appendingPathComponent("profile-backups")
         let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
         do {

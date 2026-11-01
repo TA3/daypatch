@@ -120,8 +120,9 @@ cd daypatch
 3. It re-signs the app ad hoc with the hardened runtime. The only relaxed entitlement is library validation (Dia's frameworks keep their own signature). Dia ✦ rejects `DYLD_INSERT_LIBRARIES`, so nothing else can inject code through the environment.
 4. Dia's updater stays on (in place). Updates are checked against Dia's own update key, so they still install; DayPatch sees the stock Dia afterwards and re-patches it.
 5. The patch hooks a few of Dia's private classes at runtime. If an update renames one, that feature turns off and Dia behaves normally.
+6. Before patching, DayPatch checks that its own bundle is intact and that the Dia it copies is signed by The Browser Company. Every status check verifies Dia ✦'s signature, so a swapped `daypatch.dylib` or re-signed bundle is re-patched instead of silently trusted.
 
-DayPatch's own updates are checked with an ed25519 signature made in CI, using a key that only exists in GitHub's secrets. The release pipeline builds only this repository's code — never Dia.
+DayPatch's own updates are checked with an ed25519 signature made in CI, using a key that only exists in GitHub's secrets. The release pipeline builds only this repository's code — never Dia. DayPatch itself is signed with the hardened runtime, so it can't be injected through `DYLD_INSERT_LIBRARIES` to borrow its App Management permission.
 
 **Blocking is best effort:** the host list covers what Dia 1.55 contacts. Use LuLu or Little Snitch if you need certainty.
 </details>

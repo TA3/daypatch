@@ -4,7 +4,9 @@
 
 static void installKeyMonitor(void) {
     [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent *(NSEvent *e) {
-        NSEventModifierFlags mods = e.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask;
+        // Only ⌘⌃⌥⇧: Caps Lock and Fn must not break the equality checks below.
+        NSEventModifierFlags mods = e.modifierFlags & (NSEventModifierFlagCommand | NSEventModifierFlagControl |
+                                                       NSEventModifierFlagOption | NSEventModifierFlagShift);
         NSString *key = e.charactersIgnoringModifiers.lowercaseString;
         if (TweakShortcutsHandle(e)) return nil;
         if (mods == (NSEventModifierFlagControl | NSEventModifierFlagCommand) && [key isEqualToString:@"u"]) {

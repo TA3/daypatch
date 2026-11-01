@@ -55,7 +55,7 @@ struct DayPatchWindowView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
         } trailing: {
-            Button("Open") { c.openPatchedDia() }
+            Button("Open") { c.openPatchedDia() }.disabled(c.busy != nil)
         }
         Divider().padding(.leading, 14)
         row {

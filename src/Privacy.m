@@ -149,7 +149,7 @@ void TweakPrivacyPatchArgv(void) {
     Class cls = NSClassFromString(@"ArcBrowserApplicationConfiguration");
     if (!cls) { NSLog(@"[daypatch] ArcBrowserApplicationConfiguration not found; web-engine blocking inactive"); return; }
     origArgv = (void *)TweakHook(cls, @selector(argv), (IMP)hookedArgv);
-    origArgc = (void *)TweakHook(cls, @selector(argc), (IMP)hookedArgc);
+    if (origArgv) origArgc = (void *)TweakHook(cls, @selector(argc), (IMP)hookedArgc);
 }
 
 #pragma mark - Local agent runtime
@@ -189,12 +189,22 @@ static NSArray<NSString *> *aiMenuTitles(void) {
     return @[@"Chat…", @"New Chat", @"Focus Chat", @"Send Chat Prompt Now", @"Open Daily Brief", @"Personalize Dia"];
 }
 
+static NSHashTable<NSMenuItem *> *gHiddenMenuItems;  // only these are un-hidden; Dia hides some items itself
+
 static void applyMenus(void) {
-    BOOL hide = [TweakSettings boolForKey:TweakKeyHideAI];
+    if (!gHiddenMenuItems) gHiddenMenuItems = [NSHashTable weakObjectsHashTable];
+    if (![TweakSettings boolForKey:TweakKeyHideAI]) {
+        for (NSMenuItem *i in gHiddenMenuItems) i.hidden = NO;
+        [gHiddenMenuItems removeAllObjects];
+        return;
+    }
     NSArray *titles = aiMenuTitles();
     for (NSMenuItem *top in NSApp.mainMenu.itemArray)
         for (NSMenuItem *i in top.submenu.itemArray)
-            if ([titles containsObject:i.title] && i.hidden != hide) i.hidden = hide;  // hidden items also lose their shortcuts
+            if ([titles containsObject:i.title] && !i.hidden) {
+                i.hidden = YES;  // hidden items also lose their shortcuts
+                [gHiddenMenuItems addObject:i];
+            }
 }
 
 static void hideMatching(NSView *parent, BOOL hide, BOOL (^match)(NSView *)) {
@@ -227,9 +237,9 @@ static void hookedBarLayout(NSView *self, SEL _cmd) {
 static void (*origNTPLayout)(id, SEL);
 static void hookedNTPLayout(NSView *self, SEL _cmd) {
     origNTPLayout(self, _cmd);
-    BOOL hide = [TweakSettings boolForKey:TweakKeyHideAI];
+    if (![TweakSettings boolForKey:TweakKeyHideAI]) return;  // relayoutWindows un-hides on toggle
     for (NSView *holder in self.subviews)
-        hideMatching(holder, hide, ^BOOL(NSView *v) {
+        hideMatching(holder, YES, ^BOOL(NSView *v) {
             NSString *c = NSStringFromClass(v.class);
             return [c hasPrefix:@"Personalization."] || [c hasPrefix:@"PowerUp."];
         });
@@ -318,13 +328,39 @@ static void hookedCapsLayout(NSView *self, SEL _cmd) {
     if (self.hidden != hide) self.hidden = hide;
 }
 
+// Overrides one of Dia's own defaults while `on`. The value it replaced is kept
+// under daypatch.saved.<key> (an empty dict if there was none) and put back when off.
+static void overrideDefault(NSString *key, id value, BOOL on) {
+    NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
+    NSString *savedKey = [@"daypatch.saved." stringByAppendingString:key];
+    NSDictionary *saved = [d dictionaryForKey:savedKey];
+    if (on) {
+        if (!saved) {
+            // The persistent domain only: a registered default must not be written back as the user's value.
+            id old = [d persistentDomainForName:NSBundle.mainBundle.bundleIdentifier][key];
+            [d setObject:old ? @{@"value": old} : @{} forKey:savedKey];
+        }
+        if (![[d objectForKey:key] isEqual:value]) [d setObject:value forKey:key];
+    } else if (saved) {
+        if (saved[@"value"]) [d setObject:saved[@"value"] forKey:key];
+        else [d removeObjectForKey:key];
+        [d removeObjectForKey:savedKey];
+    }
+}
+
 static void applyDefaults(void) {
     NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
+    // DayPatch ≤ 0.12.3 wrote these at every launch (including datadogTracesSamplingRate = 100), so
+    // whatever is stored is ours, not Dia's: clear it once and let Dia's own defaults apply.
+    if (![d boolForKey:@"daypatch.defaultsReset"]) {
+        for (NSString *k in @[@"enablePageContentExtraction", @"datadogTracesSamplingRate"]) [d removeObjectForKey:k];
+        [d setBool:YES forKey:@"daypatch.defaultsReset"];
+    }
     BOOL hide = [TweakSettings boolForKey:TweakKeyHideAI];
     // Page content extraction feeds the assistant; Dia defaults it on.
-    [d setBool:!hide forKey:@"enablePageContentExtraction"];
-    if (hide) [d setBool:YES forKey:@"hasManuallyClosedAskOnPage"];
-    [d setInteger:[TweakSettings boolForKey:TweakKeyBlockTelemetry] ? 0 : 100 forKey:@"datadogTracesSamplingRate"];
+    overrideDefault(@"enablePageContentExtraction", @NO, hide);
+    overrideDefault(@"hasManuallyClosedAskOnPage", @YES, hide);
+    overrideDefault(@"datadogTracesSamplingRate", @0, [TweakSettings boolForKey:TweakKeyBlockTelemetry]);
 }
 
 static void hookLayout(NSString *className, IMP imp, void (**orig)(id, SEL)) {

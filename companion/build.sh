@@ -55,7 +55,9 @@ cat > "$OUT/Contents/Info.plist" <<EOF
 EOF
 
 codesign -f -s - "$OUT/Contents/Resources/daypatch.dylib"
-codesign -f -s - "$OUT"
+# Hardened runtime: DYLD_INSERT_LIBRARIES can't inject code that would inherit
+# DayPatch's App Management permission.
+codesign -f -s - --options runtime "$OUT"
 
 if [[ "${1:-}" == "--no-install" ]]; then echo "Built: $OUT"; exit 0; fi
 

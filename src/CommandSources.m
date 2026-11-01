@@ -5,8 +5,18 @@
 @implementation TweakItem
 @end
 
+// The last-used profile's folder (Local State → profile.last_used), else Default.
 static NSString *profileDir(void) {
-    return [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/Dia/User Data/Default"];
+    NSString *root = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/Dia/User Data"];
+    NSData *data = [NSData dataWithContentsOfFile:[root stringByAppendingPathComponent:@"Local State"]];
+    id state = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+    id profile = [state isKindOfClass:NSDictionary.class] ? state[@"profile"] : nil;
+    id last = [profile isKindOfClass:NSDictionary.class] ? profile[@"last_used"] : nil;
+    BOOL isDir = NO;
+    if ([last isKindOfClass:NSString.class] && [last length] && ![last hasPrefix:@"."] && ![last containsString:@"/"] &&
+        [NSFileManager.defaultManager fileExistsAtPath:[root stringByAppendingPathComponent:last] isDirectory:&isDir] && isDir)
+        return [root stringByAppendingPathComponent:last];
+    return [root stringByAppendingPathComponent:@"Default"];
 }
 
 #pragma mark - Matching
@@ -66,7 +76,7 @@ NSString *TweakShortcutString(NSMenuItem *item) {
     NSString *_searchTemplate;
     NSString *_activeURL;
     dispatch_queue_t _queue;
-    NSUInteger _generation;
+    _Atomic NSUInteger _generation;  // read on the history queue to skip superseded queries
     NSCache<NSString *, id> *_icons;
 }
 
@@ -82,8 +92,8 @@ NSString *TweakShortcutString(NSMenuItem *item) {
     _commands = [self loadCommands];
     _pages = [self loadPages];
     _tabs = [self loadTabs];
-    if (!_bookmarks) _bookmarks = [self loadBookmarks];
-    if (!_searchTemplate) _searchTemplate = [self loadSearchTemplate];
+    _bookmarks = [self loadBookmarks];
+    _searchTemplate = [self loadSearchTemplate];
     _activeURL = TweakURLForWindow(window);
     [_icons removeAllObjects];   // drop remembered misses: sites may have icons by now
     [TweakCommandSources learnSiteIcons];
@@ -235,7 +245,8 @@ NSString *TweakShortcutString(NSMenuItem *item) {
 - (NSString *)searchURLFor:(NSString *)text {
     NSMutableCharacterSet *allowed = [NSCharacterSet.URLQueryAllowedCharacterSet mutableCopy];
     [allowed removeCharactersInString:@"&=+?#"];
-    NSString *q = [text stringByAddingPercentEncodingWithAllowedCharacters:allowed];
+    // nil for a lone surrogate (lossy UTF-8 conversion returns nil too); replacing with nil would throw.
+    NSString *q = [text stringByAddingPercentEncodingWithAllowedCharacters:allowed] ?: @"";
     NSString *u = [_searchTemplate ?: @"https://www.google.com/search?q={searchTerms}" stringByReplacingOccurrencesOfString:@"{searchTerms}" withString:q];
     u = [u stringByReplacingOccurrencesOfString:@"{google:baseURL}" withString:@"https://www.google.com/"];
     // Drop the remaining Chromium-only placeholders ({google:RLZ} etc.).
@@ -282,8 +293,14 @@ static NSString *likeEscape(NSString *s) {
     NSMutableString *where = [NSMutableString stringWithString:@"hidden = 0"];
     NSMutableArray *args = [NSMutableArray array];
     for (NSString *w in words) {
-        [args addObject:[NSString stringWithFormat:@"%%%@%%", likeEscape(w)]];
-        [where appendFormat:@" AND (url LIKE ?%lu ESCAPE '\\' OR title LIKE ?%lu ESCAPE '\\')", (unsigned long)args.count, (unsigned long)args.count];
+        // SQLite's LIKE folds ASCII case only, so non-ASCII words also try their upper and capitalized forms.
+        NSArray *forms = [w canBeConvertedToEncoding:NSASCIIStringEncoding] ? @[w] : @[w, w.uppercaseString, w.capitalizedString];
+        NSMutableString *any = [NSMutableString string];
+        for (NSString *f in forms) {
+            [args addObject:[NSString stringWithFormat:@"%%%@%%", likeEscape(f)]];
+            [any appendFormat:@"%@url LIKE ?%lu ESCAPE '\\' OR title LIKE ?%lu ESCAPE '\\'", any.length ? @" OR " : @"", (unsigned long)args.count, (unsigned long)args.count];
+        }
+        [where appendFormat:@" AND (%@)", any];
     }
     NSString *sql = [NSString stringWithFormat:@"SELECT url, title, visit_count, typed_count, last_visit_time FROM urls WHERE %@ "
                      "ORDER BY typed_count * 2 + visit_count DESC, last_visit_time DESC LIMIT 80", where];
@@ -323,7 +340,10 @@ static NSString *likeEscape(NSString *s) {
     words = [words filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"length > 0"]];
     NSArray *commands = _commands, *pages = _pages, *tabs = _tabs, *bookmarks = _bookmarks;
     NSString *activeURL = _activeURL;
+    // _searchTemplate is replaced on each open, so read it here on main, not on the queue.
+    NSString *searchURL = [self searchURLFor:text], *engine = [self searchEngineName];
     dispatch_async(_queue, ^{
+        if (gen != self->_generation) return;  // typed past; don't scan History for this one
         NSMutableArray<TweakItem *> *all = [NSMutableArray array];
         // Ranking: a command, page or tab that matches by prefix beats history (as in
         // Arc); history is ordered by match plus frecency.
@@ -382,8 +402,8 @@ static NSString *likeEscape(NSString *s) {
         } else {
             typed.kind = TweakItemSearch;
             typed.title = text;
-            typed.url = [self searchURLFor:text];
-            typed.detail = [@"Search " stringByAppendingString:[self searchEngineName]];
+            typed.url = searchURL;
+            typed.detail = [@"Search " stringByAppendingString:engine];
             typed.symbol = @"magnifyingglass";
         }
         BOOL strongTop = ranked.count && ((TweakItem *)ranked[0]).score >= 5;

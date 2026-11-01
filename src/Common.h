@@ -15,6 +15,7 @@ typedef NS_ENUM(NSInteger, TweakURLBarMode) {
 + (BOOL)cmdLFocusesSidebar;
 + (BOOL)sidebarShowsFullURL;
 + (BOOL)sidebarShowsNavButtons;
++ (BOOL)topBarWhenSidebarHidden;
 + (BOOL)boolForKey:(NSString *)key;
 + (void)setBool:(BOOL)value forKey:(NSString *)key;
 + (void)setString:(NSString *)value forKey:(NSString *)key;
@@ -26,6 +27,7 @@ extern NSString *const TweakKeyRevealOnHover;
 extern NSString *const TweakKeyCmdLFocusesSidebar;
 extern NSString *const TweakKeySidebarFullURL;
 extern NSString *const TweakKeySidebarNavButtons;
+extern NSString *const TweakKeyTopBarWhenSidebarHidden;
 extern NSString *const TweakKeyHideAI;
 extern NSString *const TweakKeyBlockAI;
 extern NSString *const TweakKeyBlockTelemetry;
@@ -54,11 +56,12 @@ IMP TweakHook(Class cls, SEL sel, IMP imp);
 // Dia scripting bridge: the active tab object for a window (DiaAppleScriptTab), or nil.
 id TweakActiveTabForWindow(NSWindow *window);
 NSString *TweakURLForWindow(NSWindow *window);
-void TweakNavigateWindow(NSWindow *window, NSString *input);
+void TweakNavigateWindow(NSWindow *window, NSString *url);  // url is final; typed text goes through TweakResolveInput first
 void TweakOpenInNewTab(NSWindow *window, NSString *url);
 void TweakFocusTab(NSString *windowId, NSString *tabId);
-NSString *TweakResolveInput(NSString *input);
-BOOL TweakLooksLikeAddress(NSString *input);   // "github.com", "localhost:3000", "nas:5000/x"
+NSString *TweakResolveURL(NSString *input);     // typed text → URL, or nil if it reads as a search
+NSString *TweakResolveInput(NSString *input);   // same, but searches fall back to Google
+BOOL TweakLooksLikeAddress(NSString *input);    // "github.com", "localhost:3000", "nas:5000/x", "[::1]"
 
 // Modules.
 void TweakNavBarInstall(void);

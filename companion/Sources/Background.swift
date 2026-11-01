@@ -11,6 +11,8 @@ enum BackgroundAgent {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents/\(label).plist")
     }
     static var isInstalled: Bool { FileManager.default.fileExists(atPath: plist.path) }
+    /// False once DayPatch has moved since the job was written.
+    static var pointsHere: Bool { (NSDictionary(contentsOf: plist)?["ProgramArguments"] as? [String])?.first == Bundle.main.executablePath }
     private static var domain: String { "gui/\(getuid())" }
 
     static func install() {

@@ -9,6 +9,8 @@ enum LoginItem {
     }
 
     static var isEnabled: Bool { FileManager.default.fileExists(atPath: plist.path) }
+    /// False once DayPatch has moved since the login item was written.
+    static var pointsHere: Bool { (NSDictionary(contentsOf: plist)?["ProgramArguments"] as? [String])?.contains(Bundle.main.bundlePath) == true }
 
     static func set(_ on: Bool) {
         if on {
