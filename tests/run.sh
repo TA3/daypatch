@@ -15,7 +15,12 @@ pass "daypatch.dylib builds"
 swiftc -O -swift-version 5 -module-name DayPatch -target arm64-apple-macos14 -o "$WORK/DayPatch" "$ROOT"/companion/Sources/*.swift
 pass "companion builds"
 
-# 2. insert-dylib adds a weak load command and the binary still runs.
+# 2. Site Search picks the right site and builds the right URL.
+clang -arch arm64 -fobjc-arc -framework Foundation -o "$WORK/sitesearch-test" "$ROOT/tests/sitesearch-test.m" "$ROOT/src/SiteSearch.m"
+"$WORK/sitesearch-test"
+pass "site search matching and URLs"
+
+# 3. insert-dylib adds a weak load command and the binary still runs.
 clang -O2 -o "$WORK/insert-dylib" "$ROOT/tools/insert-dylib.c"
 printf '#include <stdio.h>\nint main(void){puts("hello");return 0;}\n' > "$WORK/hello.c"
 clang -Wl,-headerpad,0x200 -o "$WORK/hello" "$WORK/hello.c"
@@ -27,7 +32,7 @@ otool -l "$WORK/hello" | grep -A2 LC_LOAD_WEAK_DYLIB | grep -q "@executable_path
 [ "$("$WORK/hello")" = "hello" ]
 pass "insert-dylib: weak load command added once, binary still launches"
 
-# 3. Update signatures: sign, verify, and reject a tampered file.
+# 4. Update signatures: sign, verify, and reject a tampered file.
 PUB="$(swift "$ROOT/tools/update-key.swift" generate "$WORK/key")"
 echo "payload" > "$WORK/file"
 DAYPATCH_UPDATE_PRIVATE_KEY="$(cat "$WORK/key")" swift "$ROOT/tools/update-key.swift" sign "$WORK/file" > "$WORK/file.sig"
@@ -36,7 +41,7 @@ echo "tampered" > "$WORK/file"
 if swift "$ROOT/tools/update-key.swift" verify "$WORK/file" "$WORK/file.sig" "$PUB" 2>/dev/null; then echo "FAIL tampered file verified"; exit 1; fi
 pass "update signatures verify and reject tampering"
 
-# 4. Nothing of Dia's is in the repository.
+# 5. Nothing of Dia's is in the repository.
 if find "$ROOT" -path "$ROOT/build" -prune -o \( -name '*.icns' -o -name '*.car' -o -name 'Dia.app' \) -print | grep -q .; then
     echo "FAIL Dia assets found in the repository"; exit 1
 fi

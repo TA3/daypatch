@@ -68,6 +68,7 @@ cd daypatch
   - 🗂️ finds **open tabs** (*Switch to Tab →*), **history**, **bookmarks**
   - ⚙️ runs **Dia commands** and opens **`chrome://` pages** (Flags, Extensions, Passwords…)
   - ✍️ completes sites as you type: `git` → `github.com`
+  - 🔎 **Site Search** like Arc: `redd` + `Tab` searches Reddit, `you` + `Tab` searches YouTube (your Dia search engines plus Arc's list); `Backspace` on an empty field leaves it
   - 🆕 `⌘T` only makes a tab when you open something
 - 🧼 **Clean new tab** — just "Search or enter URL"
 - 🎛️ **Settings pane** — everything lives in Dia → Settings → *DayPatch*
