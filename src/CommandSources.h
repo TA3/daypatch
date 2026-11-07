@@ -1,5 +1,6 @@
 // Result sources and ranking for the daypatch command bar.
 #import <AppKit/AppKit.h>
+#import "SiteSearch.h"
 
 typedef NS_ENUM(NSInteger, TweakItemKind) {
     TweakItemSearch,
@@ -33,6 +34,7 @@ typedef NS_ENUM(NSInteger, TweakItemKind) {
 // "homeassistant.local:8123"), and in `url` the address it stands for, with its scheme.
 - (NSString *)completionFor:(NSString *)text inItems:(NSArray<TweakItem *> *)items url:(NSString **)url;
 - (NSString *)searchURLFor:(NSString *)text;
+- (TweakSiteSearch *)siteSearchFor:(NSString *)text;  // the site Tab scopes to for `text`, if any
 + (void)learnSiteIcons;   // keep a copy of recent sites' favicons (Chromium drops them)
 - (NSImage *)faviconFor:(NSString *)url;  // cached; nil if unknown
 @end

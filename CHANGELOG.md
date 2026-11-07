@@ -2,6 +2,11 @@
 
 Each release's notes come from its section here (the release workflow requires one).
 
+## Unreleased
+
+**Dia ✦**
+- 🔎 Command bar: Site Search like Arc. Type `redd` or `you`, press `Tab`, and what you type next searches that site. Uses your Dia search engines plus Arc's list of popular sites; `Backspace` on an empty field goes back.
+
 ## 0.12.2
 
 Fixes and hardening from a code review by Filip Kotek ([ejthbit/daypatch](https://github.com/ejthbit/daypatch)) — thank you!

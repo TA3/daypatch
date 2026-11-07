@@ -2,6 +2,7 @@
 // open tabs, history, bookmarks, Dia's menu commands, chrome:// pages, or searches.
 //   ⌘T          new-tab mode (results open in a new tab)
 //   ⌘L / pill   current-tab mode, pre-filled with the current URL
+//   redd + Tab  Site Search: what's typed next searches Reddit; Backspace on empty leaves it
 #import "Common.h"
 #import "CommandSources.h"
 
@@ -214,6 +215,12 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
 @property (nonatomic, copy) NSString *completionText;   // the field with the inline completion accepted
 @property (nonatomic, copy) NSString *completionURL;    // where that goes
 @property (nonatomic, copy) NSString *shownQuery;       // the query the listed results belong to
+@property (nonatomic, strong) TweakSiteSearch *siteSearch;  // the site the bar is scoped to
+@property (nonatomic, copy) NSString *typedBeforeSiteSearch;
+@property (nonatomic, strong) NSView *pill;
+@property (nonatomic, strong) NSImageView *pillIcon;
+@property (nonatomic, strong) NSTextField *pillLabel;
+@property (nonatomic, strong) NSTextField *hint;        // "Tab to search Reddit"
 @end
 
 @implementation TweakCommandBar
@@ -272,6 +279,30 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
     _field.delegate = self;
     [_background addSubview:_field];
 
+    _pill = [[NSView alloc] initWithFrame:NSZeroRect];
+    _pill.wantsLayer = YES;
+    _pill.layer.cornerRadius = 8;
+    _pill.layer.cornerCurve = kCACornerCurveContinuous;
+    _pill.hidden = YES;
+    _pillIcon = [[NSImageView alloc] initWithFrame:NSMakeRect(8, 7, 16, 16)];
+    _pillIcon.contentTintColor = NSColor.whiteColor;
+    _pillIcon.wantsLayer = YES;
+    _pillIcon.layer.cornerRadius = 4;
+    [_pill addSubview:_pillIcon];
+    _pillLabel = [NSTextField labelWithString:@""];
+    _pillLabel.font = [NSFont systemFontOfSize:15 weight:NSFontWeightSemibold];
+    _pillLabel.textColor = NSColor.whiteColor;
+    _pillLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+    [_pill addSubview:_pillLabel];
+    [_background addSubview:_pill];
+
+    _hint = [NSTextField labelWithString:@""];
+    _hint.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
+    _hint.textColor = detailColor();
+    _hint.lineBreakMode = NSLineBreakByTruncatingTail;
+    _hint.hidden = YES;
+    [_background addSubview:_hint];
+
     _divider = [[NSBox alloc] initWithFrame:NSZeroRect];
     _divider.boxType = NSBoxSeparator;
     [_background addSubview:_divider];
@@ -309,6 +340,9 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
     self.completionText = nil;
     self.completionURL = nil;
     self.shownQuery = nil;
+    self.siteSearch = nil;
+    self.field.placeholderString = @"Search or enter URL";
+    self.hint.hidden = YES;
     [self layoutForRows:0];
     [window addChildWindow:self.panel ordered:NSWindowAbove];
     [self.panel makeKeyAndOrderFront:nil];
@@ -335,7 +369,23 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
     [self.panel setFrame:NSMakeRect(NSMidX(wf) - width / 2, top - height, width, height) display:YES];
 
     self.fieldIcon.frame = NSMakeRect(22, height - kInputHeight / 2 - 12, 24, 24);
-    self.field.frame = NSMakeRect(58, height - kInputHeight / 2 - 15, width - 58 - 22, 30);
+    CGFloat fieldX = 58, fieldMaxX = width - 22;
+    self.fieldIcon.hidden = self.siteSearch != nil;
+    self.pill.hidden = !self.siteSearch;
+    if (self.siteSearch) {
+        NSSize ls = self.pillLabel.cell.cellSize;  // cellSize: a truncating label's intrinsic size is too tight
+        CGFloat labelW = MIN(ceil(ls.width), width / 3);
+        self.pill.frame = NSMakeRect(18, height - kInputHeight / 2 - 15, 30 + labelW + 10, 30);
+        self.pillLabel.frame = NSMakeRect(30, (30 - ls.height) / 2, labelW, ls.height);
+        fieldX = NSMaxX(self.pill.frame) + 10;
+    }
+    if (!self.hint.hidden) {
+        NSSize hs = self.hint.cell.cellSize;
+        hs.width = MIN(ceil(hs.width), width / 2);
+        self.hint.frame = NSMakeRect(fieldMaxX - hs.width, height - kInputHeight / 2 - hs.height / 2, hs.width, hs.height);
+        fieldMaxX = NSMinX(self.hint.frame) - 12;
+    }
+    self.field.frame = NSMakeRect(fieldX, height - kInputHeight / 2 - 15, fieldMaxX - fieldX, 30);
     self.divider.hidden = rows == 0;
     self.divider.frame = NSMakeRect(0, height - kInputHeight - 1, width, 1);
     self.results.frame = NSMakeRect(0, 0, width, listH);
@@ -358,10 +408,25 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
 
 - (void)runQuery {
     NSString *q = self.typed ?: @"";
+    if (self.siteSearch) {
+        NSMutableArray *rows = [NSMutableArray array];
+        if ([q stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet].length) {
+            TweakItem *it = [TweakItem new];
+            it.kind = TweakItemSearch;
+            it.title = q;
+            it.detail = [@"Search " stringByAppendingString:self.siteSearch.name];
+            it.url = TweakFillSearchTemplate(self.siteSearch.urlTemplate, q);
+            it.symbol = @"magnifyingglass";
+            [rows addObject:it];
+        }
+        self.shownQuery = q;
+        [self showItems:rows];
+        return;
+    }
     __weak typeof(self) weakSelf = self;
     [self.sources query:q done:^(NSArray<TweakItem *> *items) {
         typeof(self) s = weakSelf;
-        if (![s.typed isEqualToString:q]) return;
+        if (![s.typed isEqualToString:q] || s.siteSearch) return;
         s.shownQuery = q;
         [s showItems:items];
         [s applyCompletionFrom:items];
@@ -370,6 +435,9 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
 
 - (void)showItems:(NSArray<TweakItem *> *)items {
     self.results.items = items;
+    TweakSiteSearch *tabTarget = self.siteSearch ? nil : [self.sources siteSearchFor:self.typed];
+    self.hint.hidden = !tabTarget;
+    if (tabTarget) self.hint.stringValue = [@"Tab to search " stringByAppendingString:tabTarget.name];
     [self layoutForRows:MIN(kMaxRows, items.count)];
     [self updateFieldIcon];
 }
@@ -405,6 +473,40 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
     [self updateFieldIcon];
 }
 
+- (void)enterSiteSearch:(TweakSiteSearch *)engine {
+    self.typedBeforeSiteSearch = self.typed;
+    self.siteSearch = engine;
+    self.pillLabel.stringValue = engine.name;
+    NSImage *favicon = [self.sources faviconFor:engine.siteURL];
+    self.pillIcon.image = favicon ?: [NSImage imageWithSystemSymbolName:@"magnifyingglass" accessibilityDescription:nil];
+    self.pillIcon.layer.backgroundColor = favicon ? NSColor.whiteColor.CGColor : NSColor.clearColor.CGColor;  // keeps red-on-red icons visible
+    unsigned rgb = 0;
+    BOOL seeded = engine.colorHex && [[NSScanner scannerWithString:engine.colorHex] scanHexInt:&rgb];
+    NSColor *color = seeded ? [NSColor colorWithSRGBRed:(rgb >> 16 & 0xff) / 255.0 green:(rgb >> 8 & 0xff) / 255.0 blue:(rgb & 0xff) / 255.0 alpha:1] : NSColor.controlAccentColor;
+    [self.background.effectiveAppearance performAsCurrentDrawingAppearance:^{
+        self.pill.layer.backgroundColor = color.CGColor;
+    }];
+    self.field.placeholderString = [@"Search " stringByAppendingString:engine.name];
+    [self setFieldText:@""];
+}
+
+// Back to what was typed before Tab, the way Arc restores it.
+- (void)leaveSiteSearch {
+    self.siteSearch = nil;
+    self.field.placeholderString = @"Search or enter URL";
+    [self setFieldText:self.typedBeforeSiteSearch];
+}
+
+- (void)setFieldText:(NSString *)text {
+    self.field.stringValue = text;
+    self.field.currentEditor.selectedRange = NSMakeRange(text.length, 0);
+    self.typed = text;
+    self.completionText = nil;
+    self.completionURL = nil;
+    self.suppressCompletion = YES;
+    [self runQuery];
+}
+
 - (void)controlTextDidChange:(NSNotification *)n {
     NSString *now = self.field.stringValue;
     // Deleting shouldn't immediately re-complete what was just removed.
@@ -422,13 +524,24 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
         [self updateFieldIcon];
         return YES;
     }
-    if (sel == @selector(insertTab:)) {  // accept the inline completion
+    BOOL deleting = sel == @selector(deleteBackward:) || sel == @selector(deleteWordBackward:) || sel == @selector(deleteToBeginningOfLine:);
+    if (deleting && self.siteSearch && !tv.string.length) {
+        [self leaveSiteSearch];
+        return YES;
+    }
+    if (sel == @selector(insertTab:)) {  // enter Site Search, or accept the inline completion
+        TweakSiteSearch *engine = self.siteSearch ? nil : [self.sources siteSearchFor:self.typed];
+        if (engine) {
+            [self enterSiteSearch:engine];
+            return YES;
+        }
         tv.selectedRange = NSMakeRange(tv.string.length, 0);
         self.typed = tv.string;
         [self runQuery];
         return YES;
     }
     if (sel == @selector(insertNewline:)) {
+        if (self.siteSearch && !n) return YES;  // nothing to search for yet
         BOOL newTab = (NSApp.currentEvent.modifierFlags & NSEventModifierFlagCommand) != 0;
         // An inline completion is showing and the top row is still selected: go to it.
         BOOL completed = ![tv.string isEqualToString:self.typed] && self.results.selected == 0;

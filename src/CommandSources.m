@@ -74,6 +74,7 @@ NSString *TweakShortcutString(NSMenuItem *item) {
     NSArray<TweakItem *> *_tabs;
     NSArray<TweakItem *> *_bookmarks;
     NSString *_searchTemplate;
+    NSArray<TweakSiteSearch *> *_siteSearches;
     NSString *_activeURL;
     dispatch_queue_t _queue;
     _Atomic NSUInteger _generation;  // read on the history queue to skip superseded queries
@@ -94,6 +95,7 @@ NSString *TweakShortcutString(NSMenuItem *item) {
     _tabs = [self loadTabs];
     _bookmarks = [self loadBookmarks];
     _searchTemplate = [self loadSearchTemplate];
+    _siteSearches = [self loadSiteSearches];
     _activeURL = TweakURLForWindow(window);
     [_icons removeAllObjects];   // drop remembered misses: sites may have icons by now
     [TweakCommandSources learnSiteIcons];
@@ -243,18 +245,23 @@ NSString *TweakShortcutString(NSMenuItem *item) {
 }
 
 - (NSString *)searchURLFor:(NSString *)text {
-    NSMutableCharacterSet *allowed = [NSCharacterSet.URLQueryAllowedCharacterSet mutableCopy];
-    [allowed removeCharactersInString:@"&=+?#"];
-    // nil for a lone surrogate (lossy UTF-8 conversion returns nil too); replacing with nil would throw.
-    NSString *q = [text stringByAddingPercentEncodingWithAllowedCharacters:allowed] ?: @"";
-    NSString *u = [_searchTemplate ?: @"https://www.google.com/search?q={searchTerms}" stringByReplacingOccurrencesOfString:@"{searchTerms}" withString:q];
-    u = [u stringByReplacingOccurrencesOfString:@"{google:baseURL}" withString:@"https://www.google.com/"];
-    // Drop the remaining Chromium-only placeholders ({google:RLZ} etc.).
-    NSRegularExpression *ph = [NSRegularExpression regularExpressionWithPattern:@"\\{[^}]*\\}" options:0 error:nil];
-    u = [ph stringByReplacingMatchesInString:u options:0 range:NSMakeRange(0, u.length) withTemplate:@""];
-    while ([u hasSuffix:@"&"]) u = [u substringToIndex:u.length - 1];
-    return u;
+    return TweakFillSearchTemplate(_searchTemplate ?: @"https://www.google.com/search?q={searchTerms}", text);
 }
+
+// Dia's engines (chrome://settings/searchEngines) plus Arc's seeded sites; read-only, nothing is added to Dia's list.
+- (NSArray<TweakSiteSearch *> *)loadSiteSearches {
+    NSMutableArray *rows = [NSMutableArray array];
+    // Only engines the user turned on (is_active 1) and Dia's built-ins. Sites Dia discovers by itself stay out:
+    // a visited site picks its own name and keyword, so it could take over Tab and receive the query.
+    [self sqlite:@"Web Data" query:@"SELECT short_name, keyword, url FROM keywords WHERE (is_active = 1 OR (is_active = 0 AND prepopulate_id > 0)) AND url LIKE '%{searchTerms}%' ORDER BY is_active DESC, id"
+            bind:@[] row:^(sqlite3_stmt *s) {
+        const char *name = (const char *)sqlite3_column_text(s, 0), *keyword = (const char *)sqlite3_column_text(s, 1), *url = (const char *)sqlite3_column_text(s, 2);
+        if (name && keyword && url) [rows addObject:@[@(name), @(keyword), @(url)]];
+    }];
+    return TweakMergeSiteSearches(rows);
+}
+
+- (TweakSiteSearch *)siteSearchFor:(NSString *)text { return TweakMatchSiteSearch(text, _siteSearches); }
 
 - (NSString *)searchEngineName {
     NSString *host = [NSURL URLWithString:[self searchURLFor:@"x"]].host;
