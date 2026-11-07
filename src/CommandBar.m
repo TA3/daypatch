@@ -185,6 +185,20 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
 - (BOOL)canBecomeMainWindow { return NO; }
 @end
 
+// Near-opaque fill over the blur. The blur alone takes on the page behind it, so a
+// white page turned the dark bar light gray and its white text unreadable.
+@interface TweakTintView : NSView
+@end
+
+@implementation TweakTintView
+- (BOOL)isOpaque { return NO; }
+- (NSView *)hitTest:(NSPoint)p { return nil; }
+- (void)drawRect:(NSRect)r {
+    [dyn(0.11, 0.94, 0.98, 0.94) setFill];
+    NSRectFillUsingOperation(r, NSCompositingOperationSourceOver);
+}
+@end
+
 @interface TweakCommandBar : NSObject <NSTextFieldDelegate, NSWindowDelegate, TweakResultsViewDelegate>
 @property (nonatomic, strong) TweakCommandPanel *panel;
 @property (nonatomic, strong) NSVisualEffectView *background;
@@ -237,6 +251,10 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
     _background.layer.masksToBounds = YES;
     _background.layer.borderWidth = 1;
     _panel.contentView = _background;
+
+    TweakTintView *tint = [[TweakTintView alloc] initWithFrame:_background.bounds];
+    tint.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    [_background addSubview:tint];
 
     _fieldIcon = [[NSImageView alloc] initWithFrame:NSZeroRect];
     _fieldIcon.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:18 weight:NSFontWeightRegular];
@@ -295,6 +313,12 @@ static NSColor *detailColor(void) { return dyn(1, 0.58, 0, 0.64); }
     [window addChildWindow:self.panel ordered:NSWindowAbove];
     [self.panel makeKeyAndOrderFront:nil];
     [self.panel makeFirstResponder:self.field];
+    // The system highlight (e.g. a light accent) under white text was unreadable in dark mode.
+    if ([self.field.currentEditor isKindOfClass:NSTextView.class])
+        ((NSTextView *)self.field.currentEditor).selectedTextAttributes = @{
+            NSBackgroundColorAttributeName: dyn(1, 0.24, 0, 0.14),
+            NSForegroundColorAttributeName: NSColor.labelColor,
+        };
     [self.field.currentEditor selectAll:nil];
     // Current-tab mode starts with the URL selected and no list (like Arc's ⌘L).
     if (mode == TweakCommandBarNewTab) [self runQuery];
