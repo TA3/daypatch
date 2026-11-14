@@ -26,6 +26,8 @@ mkdir -p "$HOME/Applications"
 rm -rf "$DEST"
 cp -cR "$SRC" "$DEST"
 cp "$OUT/daypatch.dylib" "$DEST/Contents/Frameworks/daypatch.dylib"
+rm -rf "$DEST/Contents/Resources/daypatch-icons"
+cp -R "$HERE/icons" "$DEST/Contents/Resources/daypatch-icons"
 
 PLIST="$DEST/Contents/Info.plist"
 # Load the patch from the binary itself (weak load command), not DYLD_INSERT_LIBRARIES.

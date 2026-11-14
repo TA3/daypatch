@@ -2,6 +2,11 @@
 
 Each release's notes come from its section here (the release workflow requires one).
 
+## 0.13.0
+
+- **Choose Dia's app icon** in Settings › DayPatch › Appearance or in the DayPatch window: Classic, Dark Liquid Glass, Alpha BGradient or BGradient. It changes the Dock, ⌘Tab and app-switcher icon without touching Dia's signature or the Finder icon.
+- **AI prompt suggestions are hidden** on the new tab page and in Dia's command bar while the field is empty. Typing still shows URL and history suggestions. Settings › DayPatch › **Hide AI prompt suggestions** turns it off.
+
 ## 0.12.2
 
 Fixes and hardening from a code review by Filip Kotek ([ejthbit/daypatch](https://github.com/ejthbit/daypatch)) — thank you!

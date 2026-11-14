@@ -60,11 +60,13 @@ final class PatchEngine: Sendable {
 
     let dylib: URL
     let entitlements: URL
+    let icons: URL
     let patchVersion: String
 
     init(resources: URL) {
         dylib = resources.appendingPathComponent("daypatch.dylib")
         entitlements = resources.appendingPathComponent("entitlements.plist")
+        icons = resources.appendingPathComponent("Icons")
         patchVersion = (try? String(contentsOf: resources.appendingPathComponent("VERSION"), encoding: .utf8))?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? "?"
     }
@@ -205,6 +207,11 @@ final class PatchEngine: Sendable {
             let frameworks = staging.appendingPathComponent("Contents/Frameworks/daypatch.dylib")
             try fm.copyItem(at: dylib, to: frameworks)
             try run("/usr/bin/codesign", ["-f", "-s", "-", frameworks.path], "Signing the patch")
+            if fm.fileExists(atPath: icons.path) {
+                let destination = staging.appendingPathComponent("Contents/Resources/daypatch-icons")
+                try? fm.removeItem(at: destination)
+                try fm.copyItem(at: icons, to: destination)
+            }
 
             // Load the patch from the binary itself (a weak load command), rather than via
             // DYLD_INSERT_LIBRARIES: Dia ✦ then doesn't accept injected code from the environment.

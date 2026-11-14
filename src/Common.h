@@ -29,6 +29,7 @@ extern NSString *const TweakKeySidebarFullURL;
 extern NSString *const TweakKeySidebarNavButtons;
 extern NSString *const TweakKeyTopBarWhenSidebarHidden;
 extern NSString *const TweakKeyHideAI;
+extern NSString *const TweakKeyHideAISuggestions;
 extern NSString *const TweakKeyBlockAI;
 extern NSString *const TweakKeyBlockTelemetry;
 extern NSString *const TweakKeyDisableOnDeviceAI;
@@ -82,6 +83,13 @@ NSArray<NSString *> *TweakPerformanceSwitches(void);
 void TweakPaletteInstall(void);
 void TweakHandoffInstall(void);       // "Use Passkeys in Original Dia…"
 void TweakSiteIconsInstall(void);     // the command bar's own copy of site favicons
+// Dia icon choices (the .icns pack copied into Dia at patch time).
+NSArray<NSDictionary<NSString *, NSString *> *> *TweakAppIconChoices(void);
+NSImage *TweakAppIconImage(NSString *iconID);
+NSImage *TweakDefaultAppIcon(void);
+NSString *TweakCurrentAppIconID(void);
+void TweakSetAppIconID(NSString *iconID);
+void TweakAppIconInstall(void);
 BOOL TweakPaletteOpen(NSWindow *window);          // ⌘T: Dia's editor centred, commits open a new tab
 void TweakPaletteEditorClosed(NSWindow *window);
 BOOL TweakCommandBarShow(NSWindow *window, BOOL newTab);

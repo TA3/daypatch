@@ -10,6 +10,7 @@
 #include <spawn.h>
 
 NSString *const TweakKeyHideAI = @"daypatch.hideAI";
+NSString *const TweakKeyHideAISuggestions = @"daypatch.hideAISuggestions";
 NSString *const TweakKeyBlockAI = @"daypatch.blockAI";
 NSString *const TweakKeyBlockTelemetry = @"daypatch.blockTelemetry";
 
@@ -304,6 +305,69 @@ static void hookedSuggestionsSetFrame(NSView *self, SEL _cmd, NSRect f) {
     origSuggestionsSetFrame(self, _cmd, f);
 }
 
+// The new tab page and Dia's URL editor show canned AI prompts while the composer
+// is empty. Hide the list then; typed queries still show URL/history suggestions.
+static NSView *viewWithIdentifier(NSView *root, NSString *identifier) {
+    if ([root.accessibilityIdentifier isEqualToString:identifier]) return root;
+    for (NSView *s in root.subviews) {
+        NSView *hit = viewWithIdentifier(s, identifier);
+        if (hit) return hit;
+    }
+    return nil;
+}
+
+static NSView *suggestionsTextView(NSView *suggestions) {
+    NSView *root = suggestions;
+    while (root && ![NSStringFromClass(root.class) isEqualToString:@"BoostCommandBar.RootView"]) root = root.superview;
+    if (!root) root = suggestions.superview;
+    return root ? viewWithIdentifier(root, @"commandBarTextField") : nil;
+}
+
+static BOOL suggestionsShouldHide(NSView *suggestions) {
+    if (![TweakSettings boolForKey:TweakKeyHideAISuggestions]) return NO;
+    NSView *field = suggestionsTextView(suggestions);
+    if ([field isKindOfClass:NSTextView.class]) return [(NSTextView *)field string].length == 0;
+    if ([field isKindOfClass:NSTextField.class]) return [(NSTextField *)field stringValue].length == 0;
+    return NO;
+}
+
+static void (*origSuggestionsLayout)(id, SEL);
+static void hookedSuggestionsLayout(NSView *self, SEL _cmd) {
+    origSuggestionsLayout(self, _cmd);
+    BOOL hide = suggestionsShouldHide(self);
+    if (self.hidden != hide) {
+        self.hidden = hide;
+        [self invalidateIntrinsicContentSize];
+        [self.superview setNeedsLayout:YES];
+    }
+}
+
+static NSSize (*origSuggestionsIntrinsic)(id, SEL);
+static NSSize hookedSuggestionsIntrinsic(NSView *self, SEL _cmd) {
+    NSSize size = origSuggestionsIntrinsic(self, _cmd);
+    if (self.hidden) size.height = 0;
+    return size;
+}
+
+static void updateSuggestionViews(void) {
+    for (NSWindow *w in NSApp.windows) {
+        NSMutableArray *queue = [NSMutableArray arrayWithObject:w.contentView.superview ?: w.contentView];
+        while (queue.count) {
+            NSView *v = queue.lastObject;
+            [queue removeLastObject];
+            if ([NSStringFromClass(v.class) isEqualToString:@"BoostCommandBar.SuggestionsView"]) {
+                BOOL hide = suggestionsShouldHide(v);
+                if (v.hidden != hide) {
+                    v.hidden = hide;
+                    [v invalidateIntrinsicContentSize];
+                    [v.superview setNeedsLayout:YES];
+                }
+            }
+            [queue addObjectsFromArray:v.subviews];
+        }
+    }
+}
+
 // The start page's composer has the same reserved toolbar space; trim it while
 // Dia's proposed height still includes the (hidden) toolbar.
 static void (*origPanelSetFrame)(id, SEL, NSRect);
@@ -417,7 +481,11 @@ void TweakPrivacyInstall(void) {
             origActionMoveToWindow = (void *)TweakHook(hoverAction, @selector(viewDidMoveToWindow), (IMP)hookedActionMoveToWindow);
         }
         Class sugg = NSClassFromString(@"BoostCommandBar.SuggestionsView");
-        if (sugg) origSuggestionsSetFrame = (void *)TweakHook(sugg, @selector(setFrame:), (IMP)hookedSuggestionsSetFrame);
+        if (sugg) {
+            origSuggestionsSetFrame = (void *)TweakHook(sugg, @selector(setFrame:), (IMP)hookedSuggestionsSetFrame);
+            origSuggestionsLayout = (void *)TweakHook(sugg, @selector(layout), (IMP)hookedSuggestionsLayout);
+            origSuggestionsIntrinsic = (void *)TweakHook(sugg, @selector(intrinsicContentSize), (IMP)hookedSuggestionsIntrinsic);
+        }
         Class panel = NSClassFromString(@"AssistantPanelUIBase.AssistantPanelRootView");
         if (panel) origPanelSetFrame = (void *)TweakHook(panel, @selector(setFrame:), (IMP)hookedPanelSetFrame);
         Class editorText = TweakFindClass(@"_TtCC15BoostCommandBar17TextContainerView", @"TextView");
@@ -426,11 +494,14 @@ void TweakPrivacyInstall(void) {
         applyMenus();
         [NSNotificationCenter.defaultCenter addObserverForName:NSMenuDidBeginTrackingNotification object:nil queue:nil
                                                     usingBlock:^(__unused NSNotification *n) { applyMenus(); }];
+        [NSNotificationCenter.defaultCenter addObserverForName:NSTextDidChangeNotification object:nil queue:nil
+                                                    usingBlock:^(__unused NSNotification *n) { updateSuggestionViews(); }];
         [NSNotificationCenter.defaultCenter addObserverForName:TweakSettingsDidChangeNotification object:nil queue:nil
                                                     usingBlock:^(__unused NSNotification *n) {
             applyDefaults();
             applyMenus();
             relayoutWindows();
+            updateSuggestionViews();
         }];
         // Dia rebuilds menus now and then; keep them in line.
         NSTimer *t = [NSTimer scheduledTimerWithTimeInterval:15 repeats:YES block:^(__unused NSTimer *t) { applyMenus(); }];

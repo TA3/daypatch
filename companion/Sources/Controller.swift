@@ -86,6 +86,7 @@ final class Controller: ObservableObject {
     @Published private(set) var lastError: String?
     @Published private(set) var health: Health?
     @Published private(set) var pendingRepatch = false
+    @Published private(set) var appIconID = DiaIcons.currentID()
 
     // Settings, mirrored for SwiftUI bindings.
     @Published var autoRepatch = Prefs.autoRepatch { didSet { Prefs.autoRepatch = autoRepatch; tick() } }
@@ -130,6 +131,7 @@ final class Controller: ObservableObject {
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     self.status = s
+                    self.appIconID = DiaIcons.currentID()
                     self.onChange?()
                     then?()
                 }
@@ -187,6 +189,11 @@ final class Controller: ObservableObject {
             self.pendingRepatch = true
             NSWorkspace.shared.openApplication(at: PatchEngine.source, configuration: .init())
         }
+    }
+
+    func setAppIcon(_ id: String?) {
+        appIconID = id
+        DiaIcons.select(id)
     }
 
     /// Puts the untouched Dia back; DayPatch leaves it alone until Patch is clicked.
