@@ -50,6 +50,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
 @property (nonatomic, strong) NSPopUpButton *rendererPopup;
 @property (nonatomic, strong) NSPopUpButton *commandBarPopup;
 @property (nonatomic, strong) NSPopUpButton *profileNumberPopup;
+@property (nonatomic, strong) NSPopUpButton *appIconPopup;
 @property (nonatomic, strong) NSMutableArray<TweakShortcutRecorder *> *recorders;
 @property (nonatomic, weak) NSScrollView *scroll;
 @property (nonatomic, strong) NSTimer *timer;
@@ -195,8 +196,18 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
                                        control:_profileNumberPopup key:TweakKeyProfileNumberMods]];
     NSView *shortcutsGroup = [self groupWithRows:shortcutRows];
 
+    _appIconPopup = [[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
+    _appIconPopup.controlSize = NSControlSizeSmall;
+    _appIconPopup.target = self;
+    _appIconPopup.action = @selector(appIconChanged:);
+    [self fillAppIcons];
+    NSView *appearanceGroup = [self groupWithRows:@[
+        [self rowWithTitle:@"Dia icon" detail:@"The icon shown in the Dock, \u2318Tab and app switcher. The Finder icon stays Dia's own." control:_appIconPopup key:nil],
+    ]];
+
     NSView *privacyGroup = [self groupWithRows:@[
         [self rowWithTitle:@"Hide AI features" detail:@"Chat menus and shortcuts, Chats in the sidebar, the Chat button, \u201cChat with this tab\u201d on tab previews, \u201cAdd tabs or files\u201d, and page content extraction." control:[self switchForKey:TweakKeyHideAI] key:TweakKeyHideAI],
+        [self rowWithTitle:@"Hide AI prompt suggestions" detail:@"The suggested prompts on the new tab page and in the command bar while the field is empty. Typing still shows URL and history suggestions." control:[self switchForKey:TweakKeyHideAISuggestions] key:TweakKeyHideAISuggestions],
         [self rowWithTitle:@"Block AI services" detail:@"Dia's AI endpoints (chat, AI search, artifacts) and Google's Gemini API. Hover for the full list." control:[self switchForKey:TweakKeyBlockAI] key:TweakKeyBlockAI],
         [self rowWithTitle:@"Block telemetry" detail:@"Datadog, Sentry, Segment, LaunchDarkly events and Dia's OpenTelemetry gateway." control:[self switchForKey:TweakKeyBlockTelemetry] key:TweakKeyBlockTelemetry],
     ]];
@@ -224,6 +235,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
         [self label:@"URL bar" size:13 weight:NSFontWeightSemibold color:NSColor.labelColor], urlGroup,
         [self label:@"Sidebar URL bar" size:13 weight:NSFontWeightSemibold color:NSColor.labelColor], sidebarGroup,
         [self label:@"Shortcuts" size:13 weight:NSFontWeightSemibold color:NSColor.labelColor], shortcutsGroup,
+        [self label:@"Appearance" size:13 weight:NSFontWeightSemibold color:NSColor.labelColor], appearanceGroup,
         [self label:@"Privacy" size:13 weight:NSFontWeightSemibold color:NSColor.labelColor], privacyGroup, _blockedLabel,
         [self label:@"Performance" size:13 weight:NSFontWeightSemibold color:NSColor.labelColor], perfGroup, perfNote,
         footer,
@@ -257,6 +269,7 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
         [urlGroup.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
         [sidebarGroup.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
         [shortcutsGroup.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
+        [appearanceGroup.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
         [privacyGroup.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
         [perfGroup.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
         [footer.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
@@ -296,6 +309,21 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     }
 }
 
+- (void)fillAppIcons {
+    [_appIconPopup removeAllItems];
+    [_appIconPopup addItemWithTitle:@"Dia Default"];
+    _appIconPopup.lastItem.representedObject = NSNull.null;
+    for (NSDictionary *item in TweakAppIconChoices()) {
+        [_appIconPopup addItemWithTitle:item[@"name"]];
+        _appIconPopup.lastItem.representedObject = item[@"id"];
+        _appIconPopup.lastItem.image = TweakAppIconImage(item[@"id"]);
+    }
+    NSImage *fallback = TweakDefaultAppIcon();
+    if (fallback) [[_appIconPopup itemAtIndex:0] setImage:fallback];
+    for (NSMenuItem *item in _appIconPopup.itemArray)
+        if (item.image) item.image.size = NSMakeSize(18, 18);
+}
+
 - (void)sync {
     TweakURLBarMode mode = TweakSettings.urlBarMode;
     [self.modePopup selectItemWithTag:mode];
@@ -313,6 +341,13 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     }
     [self.profileNumberPopup selectItemWithTag:TweakProfileNumberMods()];
     [self setRow:TweakKeyProfileNumberMods enabled:shortcuts];
+    NSString *appIcon = TweakCurrentAppIconID();
+    NSInteger iconIndex = 0;
+    for (NSInteger i = 0; i < _appIconPopup.numberOfItems; i++) {
+        id rep = [_appIconPopup itemAtIndex:i].representedObject;
+        if (appIcon ? [rep isEqual:appIcon] : (rep == NSNull.null || !rep)) { iconIndex = i; break; }
+    }
+    [_appIconPopup selectItemAtIndex:iconIndex];
 }
 
 - (void)modeChanged:(NSPopUpButton *)p { [TweakSettings setURLBarMode:p.selectedTag]; }
@@ -329,6 +364,11 @@ static NSColor *dyn(CGFloat darkWhite, CGFloat darkAlpha, CGFloat lightWhite, CG
     [NSNotificationCenter.defaultCenter postNotificationName:TweakSettingsDidChangeNotification object:nil];
 }
 - (void)switchChanged:(NSSwitch *)s { [TweakSettings setBool:s.state == NSControlStateValueOn forKey:s.identifier]; }
+- (void)appIconChanged:(NSPopUpButton *)p {
+    id rep = p.selectedItem.representedObject;
+    TweakSetAppIconID(rep == NSNull.null ? nil : rep);
+    [self sync];
+}
 
 @end
 

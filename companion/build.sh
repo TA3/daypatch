@@ -25,6 +25,7 @@ clang -dynamiclib -arch arm64 -fobjc-arc -O2 -Wall -Wno-unused-function \
     -o "$OUT/Contents/Resources/daypatch.dylib" "$ROOT"/src/*.m
 cp "$ROOT/entitlements.plist" "$OUT/Contents/Resources/"
 echo "$VERSION" > "$OUT/Contents/Resources/VERSION"
+cp -R "$ROOT/icons" "$OUT/Contents/Resources/Icons"
 
 # The companion.
 swiftc -O -swift-version 5 -module-name DayPatch -target arm64-apple-macos14 \

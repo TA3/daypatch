@@ -44,6 +44,7 @@ __attribute__((constructor)) static void init(void) {
     dispatch_async(dispatch_get_main_queue(), ^{
         TweakNavBarInstall();
         TweakSidebarInstall();
+        TweakAppIconInstall();
         TweakPreferencesInstall();
         TweakPaletteInstall();
         installKeyMonitor();

@@ -71,6 +71,7 @@ cd daypatch
   - 🆕 `⌘T` only makes a tab when you open something
 - 🧼 **Clean new tab** — just "Search or enter URL"
 - 🎛️ **Settings pane** — everything lives in Dia → Settings → *DayPatch*
+- 🎨 **Dia icon** — choose Classic, Dark Liquid Glass or a gradient icon for the Dock and ⌘Tab (*optional*)
 - ⌨️ **`⌃⌘U`** — flip between Dia's bar and yours
 - 🗂️ **Extra shortcuts** — sort or group tabs by domain, switch profiles, move a tab to the next profile (*optional, each key changeable*)
 

@@ -33,6 +33,7 @@ NSString *const TweakKeyTopBarWhenSidebarHidden = @"daypatch.topBarWhenSidebarHi
         TweakKeySidebarFullURL: @NO,
         TweakKeySidebarNavButtons: @YES,
         TweakKeyHideAI: @YES,
+        TweakKeyHideAISuggestions: @YES,
         // Network blocking is opt-in; hiding AI UI only changes what's shown locally.
         TweakKeyBlockAI: @NO,
         TweakKeyBlockTelemetry: @NO,

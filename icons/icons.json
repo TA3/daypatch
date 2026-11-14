@@ -1,0 +1,6 @@
+[
+  { "id": "classic", "name": "Classic", "file": "classic.icns" },
+  { "id": "dark-liquid-glass", "name": "Dark Liquid Glass", "file": "dark-liquid-glass.icns" },
+  { "id": "alpha-bgradient", "name": "Alpha BGradient", "file": "alpha-bgradient.icns" },
+  { "id": "bgradient", "name": "BGradient", "file": "bgradient.icns" }
+]

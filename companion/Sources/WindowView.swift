@@ -11,6 +11,7 @@ struct DayPatchWindowView: View {
             Group {
                 section(PatchEngine.appName) { patchedRows }
                 section("Updates") { updateRows }
+                section("Dia icon") { iconRows }
                 if let h = c.health { section("Features") { healthRows(h) } }
                 section("Settings") { settingsRows }
             }
@@ -118,6 +119,43 @@ struct DayPatchWindowView: View {
                 Button("Dismiss") { c.clearError() }
             }
         }
+    }
+
+    @ViewBuilder private var iconRows: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 70), spacing: 8)], alignment: .leading, spacing: 8) {
+                iconButton(nil, name: "Default", image: DiaIcons.defaultImage)
+                ForEach(DiaIcons.choices) { choice in
+                    iconButton(choice.id, name: choice.name, image: choice.image)
+                }
+            }
+            Text("Shown in Dia's Dock and app switcher. The Finder icon stays Dia's own.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+    }
+
+    private func iconButton(_ id: String?, name: String, image: NSImage?) -> some View {
+        let selected = c.appIconID == id
+        return Button { c.setAppIcon(id) } label: {
+            VStack(spacing: 5) {
+                Group {
+                    if let image {
+                        Image(nsImage: image).resizable().interpolation(.high)
+                    } else {
+                        Image(systemName: "app")
+                    }
+                }
+                .frame(width: 40, height: 40)
+                Text(name).font(.caption2).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .frame(width: 70, height: 70)
+            .background(RoundedRectangle(cornerRadius: 8).fill(selected ? Color.accentColor.opacity(0.15) : Color.clear))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(selected ? Color.accentColor : Color.primary.opacity(0.08)))
+            .contentShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+        .help(name)
     }
 
     @ViewBuilder private func healthRows(_ h: Health) -> some View {

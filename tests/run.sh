@@ -37,7 +37,12 @@ if swift "$ROOT/tools/update-key.swift" verify "$WORK/file" "$WORK/file.sig" "$P
 pass "update signatures verify and reject tampering"
 
 # 4. Nothing of Dia's is in the repository.
-if find "$ROOT" -path "$ROOT/build" -prune -o \( -name '*.icns' -o -name '*.car' -o -name 'Dia.app' \) -print | grep -q .; then
+if find "$ROOT" \( -path "$ROOT/build" -o -path "$ROOT/icons" \) -prune -o \( -name '*.icns' -o -name '*.car' -o -name 'Dia.app' \) -print | grep -q .; then
     echo "FAIL Dia assets found in the repository"; exit 1
 fi
-pass "no Dia binaries or artwork in the repository"
+pass "no Dia binaries or artwork outside icons/"
+
+# 5. The icon pack is complete and readable.
+for icon in "$ROOT"/icons/*.icns; do [ -s "$icon" ]; done
+[ -s "$ROOT/icons/icons.json" ]
+pass "icon pack is present"
